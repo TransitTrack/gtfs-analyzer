@@ -120,7 +120,7 @@ tasks.register<Copy>("copyNativeLib") {
 tasks.register("buildNativeForCurrentPlatform") {
     doLast {
         val repoRoot = rootDir.parentFile // kotlin/ is a direct child of the repo root
-        exec { workingDir = repoRoot; commandLine("cargo", "build", "--release", "-p", "gtfs-analyzer-jvm") }
+        providers.exec { workingDir = repoRoot; commandLine("cargo", "build", "--release", "-p", "gtfs-analyzer-jvm") }
         val os = org.gradle.internal.os.OperatingSystem.current()
         val arch = System.getProperty("os.arch")
         val tag = when {
