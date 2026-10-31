@@ -17,7 +17,7 @@ resolver = "2"
 #   node scripts/bump-version.mjs X.Y.Z
 # (kalan kopyaları — iç pinler, SDK ENGINE_VERSION, ui/package.json — o yazar,
 # sdk/scripts/check-version.mjs hepsinin eşitliğini denetler).
-version = "0.17.0"
+version = "0.17.1"
 license = "MIT"
 
 [workspace.dependencies]

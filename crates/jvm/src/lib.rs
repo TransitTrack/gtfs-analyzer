@@ -121,6 +121,10 @@ pub extern "system" fn Java_io_github_transittrack_gtfsanalyzer_GtfsAnalyzerNati
     include_name_index: jboolean,
     lang: JString<'local>,
 ) -> JString<'local> {
+    if std::env::var_os("GTFS_QUIET").is_none() {
+        std::env::set_var("GTFS_QUIET", "1");
+    }
+
     env.with_env(|env| -> jni::errors::Result<JString<'local>> {
         const ILLEGAL_ARGUMENT: &JNIStr = jni_str!("java/lang/IllegalArgumentException");
 
