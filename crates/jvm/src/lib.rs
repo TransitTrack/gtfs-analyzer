@@ -16,6 +16,10 @@ pub fn validate_to_json(
     include_name_index: bool,
     lang: &str,
 ) -> Result<String, String> {
+    if std::env::var_os("GTFS_QUIET").is_none() {
+        std::env::set_var("GTFS_QUIET", "1");
+    }
+
     // Lang is checked BEFORE validation: an invalid code should fail immediately,
     // not after the feed has been processed.
     let lang: Lang = lang.parse()?;
@@ -121,10 +125,6 @@ pub extern "system" fn Java_io_github_transittrack_gtfsanalyzer_GtfsAnalyzerNati
     include_name_index: jboolean,
     lang: JString<'local>,
 ) -> JString<'local> {
-    if std::env::var_os("GTFS_QUIET").is_none() {
-        std::env::set_var("GTFS_QUIET", "1");
-    }
-
     env.with_env(|env| -> jni::errors::Result<JString<'local>> {
         const ILLEGAL_ARGUMENT: &JNIStr = jni_str!("java/lang/IllegalArgumentException");
 

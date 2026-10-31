@@ -63,17 +63,16 @@ class GtfsAnalyzerIntegrationTest {
     fun validateReturnsOkWithExpectedMetricsForACleanFeed() {
         val result = GtfsAnalyzer.validate(minimalFeedZip(), today = TODAY)
         assertIs<EngineResult.Ok>(result)
-        val ok = result as EngineResult.Ok
-        assertEquals(2, ok.result.metrics.stopCount)
-        assertEquals(1, ok.result.metrics.routeCount)
-        assertEquals(1, ok.result.metrics.tripCount)
+        assertEquals(2, result.result.metrics.stopCount)
+        assertEquals(1, result.result.metrics.routeCount)
+        assertEquals(1, result.result.metrics.tripCount)
     }
 
     @Test
     fun validateReturnsFatalForACorruptZip() {
         val result = GtfsAnalyzer.validate("not a zip".toByteArray(), today = TODAY)
         assertIs<EngineResult.Fatal>(result)
-        assertEquals(FatalCode.ZipUnreadable, (result as EngineResult.Fatal).error.code)
+        assertEquals(FatalCode.ZipUnreadable, result.error.code)
     }
 
     @Test

@@ -49,7 +49,7 @@ class EngineResultTest {
         val json = """{"Fatal": {"code":"ZipUnreadable","message":"bad zip"}}"""
         val result = EngineJson.decodeFromString<EngineResult>(json)
         assertIs<EngineResult.Fatal>(result)
-        assertEquals(FatalCode.ZipUnreadable, (result as EngineResult.Fatal).error.code)
+        assertEquals(FatalCode.ZipUnreadable, result.error.code)
     }
 
     @Test

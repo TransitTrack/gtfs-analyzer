@@ -15,6 +15,9 @@ import kotlin.time.Clock
  * engine (the same engine backing the CLI and WASM/TS SDKs) and returns its decoded result.
  */
 object GtfsAnalyzer {
+    init {
+        loadNativeLibrary()
+    }
     /**
      * Validates a GTFS feed already loaded into memory as a ZIP byte buffer.
      *
@@ -34,7 +37,6 @@ object GtfsAnalyzer {
         includeNameIndex: Boolean = false,
         lang: String = "en",
     ): EngineResult {
-        loadNativeLibrary()
         val todayInt = today.format(LocalDate.Formats.ISO_BASIC).toInt() // YYYYMMDD
         val configJson = EngineJson.encodeToString(config)
         val json = GtfsAnalyzerNative.validate(feed, todayInt, configJson, includeNameIndex, lang)
