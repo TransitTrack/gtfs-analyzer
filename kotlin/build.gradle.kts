@@ -1,8 +1,8 @@
 import java.io.File
 
 plugins {
-    kotlin("jvm") version "2.0.21"
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.serialization") version "2.4.21"
     `maven-publish`
     signing
 }
@@ -27,7 +27,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     testImplementation(kotlin("test"))
 }
 
@@ -67,6 +67,7 @@ if (!skipNativeBuild) {
 val generatedVersionDir = layout.buildDirectory.dir("generated/version")
 
 val generateVersion = tasks.register("generateVersion") {
+    description = "generate version form sdk version"
     val outputDir = generatedVersionDir
     inputs.property("sdkVersion", sdkVersion)
     outputs.dir(outputDir)
