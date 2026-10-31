@@ -38,7 +38,7 @@ GTFS Validator & Analyzer, spesifikasyon doğrulamasını operasyonel kalite ana
 ### Özellikler
 
 | Özellik | MobilityData | GTFS Analyzer |
-|---|:---:|:---:|
+| --- | :---: | :---: |
 | Web arayüzü | ✅ | ✅ |
 | Veri sunucuya gitmiyor | ❌ | ✅ |
 | Spec uyum kuralları | ✅ | ✅ |
@@ -65,7 +65,7 @@ Doğruluk birkaç feed'le gösterilemez. Her sürüm, **MobilityDatabase'in tüm
 Son koşumdan (`40411348163`: 4.435 feed denendi, 4.403 geçerli ZIP indirildi ve **4.390** feed'de iki taraf da tamamlandı):
 
 | | GTFS Analyzer | MobilityData |
-|---|---|---|
+| --- | --- | --- |
 | Medyan süre | **0,05 sn** | 2,77 sn |
 | Medyan tepe bellek | **15 MB** | 332 MB |
 | İndirilen ZIP'lerde bitiremediği feed | **0** | 13 |
@@ -87,7 +87,7 @@ Aşağıdaki sayılar `40411348163` korpus koşumundan alınmıştır: aynı ar�
 Feed: `mdb-53` · 14 hat, 291 durak, 6.377 sefer · 1,0 MB
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Toplam bulgu | 2.716 | 1.027 |
 | Kritik / Error | 2 | 2 |
 | Yüksek / Warning | 2.653 | 2 |
@@ -106,7 +106,7 @@ Feed: `mdb-53` · 14 hat, 291 durak, 6.377 sefer · 1,0 MB
 Feed: `mdb-247` · 82 hat, 6.031 durak, 67.957 sefer · 41,4 MB
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Toplam bulgu | 31 | 4.690 |
 | Kritik / Error | 0 | 0 |
 | Yüksek / Warning | 20 | 1 |
@@ -125,7 +125,7 @@ Feed: `mdb-247` · 82 hat, 6.031 durak, 67.957 sefer · 41,4 MB
 Feed: `mdb-3175` · 6,8 MB · **GTFS-JP profili**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Toplam bulgu | 1.673 | 3.095 |
 | Kritik / Error | 0 | 0 |
 | Yüksek / Warning | 301 | 10 |
@@ -144,7 +144,7 @@ Feed: `mdb-3175` · 6,8 MB · **GTFS-JP profili**
 Feed: `mdb-782` · 1.254 hat, 41.904 durak, 183.349 sefer, 14.189 shape · **62,5 MB**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Toplam bulgu | 11.573 | 19.979 |
 | Kritik / Error | 5 | 0 |
 | Yüksek / Warning | 10.704 | 788 |
@@ -173,7 +173,7 @@ GTFS Analyzer, Japonya'nın ulusal GTFS profili **GTFS-JP**'yi (国土交通省 
 **Profil kuralları (JPN grubu).**
 
 | Kural | Denetim |
-|---|---|
+| --- | --- |
 | **JPN_001** | Durak adlarının kana (よみがな — `translations.txt`, `ja-Hrkt`) okuması; sesli anons ve arama için GTFS-JP'de zorunludur |
 | **JPN_002** | `jp_office_id` (`trips.txt` **veya** `routes.txt`) değerinin `office_jp.txt`'teki bir `office_id` ile eşleşmesi (işletme ofisi referans bütünlüğü) |
 | **JPN_003** | `agency_jp.txt` `agency_id` değerinin `agency.txt`'te tanımlı olması (işletici referans bütünlüğü) |
@@ -264,7 +264,7 @@ Arayüzde performans için sınırlandırılmış bulgu örnekleri bulunsa bile 
 Aynı 619 kurallı doğrulama motoruna yedi farklı yoldan erişilebilir; arayüzler sonucu kendi kullanım biçimlerine göre sunar:
 
 | yol | ne için | veri nereye gider |
-|---|---|---|
+| --- | --- | --- |
 | **Tarayıcı** ([uygulama](https://ttezer.github.io/gtfs-analyzer/)) | tek feed'i açıp haritayla incelemek | **hiçbir yere** — WebAssembly ile cihazda |
 | **CLI** (`cargo install gtfs-analyzer` ya da hazır binary) | toplu doğrulama, betikleme, Python entegrasyonu | hiçbir yere — yerel binary |
 | **Rust kütüphanesi** ([`gtfs-pipeline`](https://crates.io/crates/gtfs-pipeline)) | doğrulamayı kendi Rust servisinize gömmek | hiçbir yere — kendi süreciniz |
@@ -297,9 +297,9 @@ Doğrulamayı kendi Rust servisinize gömmek için `gtfs-pipeline`'ı doğrudan 
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.0"
-gtfs-config   = "0.17.0"
-gtfs-core     = "0.17.0"
+gtfs-pipeline = "0.17.1"
+gtfs-config   = "0.17.1"
+gtfs-core     = "0.17.1"
 ```
 
 ```rust
@@ -325,7 +325,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### `gtfs-sdk` npm paketi
 
-`gtfs-sdk`, v0.17.0 doğrulama motorunu typed JavaScript/TypeScript API olarak sunar. Feed uygulamadan çıkmadan yerel WASM ile doğrulanır:
+`gtfs-sdk`, v0.17.1 doğrulama motorunu typed JavaScript/TypeScript API olarak sunar. Feed uygulamadan çıkmadan yerel WASM ile doğrulanır:
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -401,7 +401,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 ### `validate` — feed doğrulama
 
 | Bayrak | Açıklama |
-|---|---|
+| --- | --- |
 | `--json` | Sonucun tamamını JSON olarak yazar |
 | `--summary` | Kısa özet: durum, notice sayısı, skorlar (varsayılan; `--json` ile birlikte kullanılamaz) |
 | `--rule SHP_010` | Yalnızca verilen kural için notice'lar |
@@ -513,7 +513,7 @@ MobilityData'nın güncel rules sayfası `fast_travel_between_far_stops` için t
 ### Hız Eşikleri
 
 | Parametre | Varsayılan | Aralık | Açıklama |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Maks. Otobüs Hızı | 120 km/h | 60–200 | Otobüs seferleri için maksimum izin verilen hız |
 | Maks. Tramvay Hızı | 100 km/h | 40–160 | Tramvay seferleri için maksimum izin verilen hız |
 | Maks. Metro Hızı | 150 km/h | 80–250 | Metro seferleri için maksimum izin verilen hız |
@@ -524,7 +524,7 @@ MobilityData'nın güncel rules sayfası `fast_travel_between_far_stops` için t
 ### Coğrafi ve Aktarma Eşikleri
 
 | Parametre | Varsayılan | Aralık | Açıklama |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Min. Aktarma Süresi | 180 sn | 30–1800 | Transferler için minimum bağlantı süresi |
 | Maks. Aktarma Mesafesi | 500 m | 50–2000 | Transfer geçerli sayılmak için maksimum mesafe |
 | Maks. Güzergah Sıçraması | 10 km | 1–50 | Art arda güzergah noktaları arasındaki maksimum mesafe |
@@ -535,7 +535,7 @@ MobilityData'nın güncel rules sayfası `fast_travel_between_far_stops` için t
 ### Servis ve Operasyonel Eşikler
 
 | Parametre | Varsayılan | Aralık | Açıklama |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Son Kullanma Uyarısı | 30 gün | 1–60 | Feed bu kadar günden az kalmışsa uyarı üretilir |
 | Feed Bilgisi Son Kullanma Uyarısı | 7 gün | 1–60 | `FIN_019` için `feed_info.feed_end_date` bu pencere içinde bitiyorsa uyarı üretilir; varsayılan 7 gündür ve 30 günlük MobilityData paritesi `feed_info_expiry_warning_days=30` ile elde edilir |
 | Servis Boşluğu Eşiği | 7 gün | 3–30 | Bu günden uzun servis kesintisi işaretlenir |
@@ -553,6 +553,7 @@ MobilityData'nın güncel rules sayfası `fast_travel_between_far_stops` için t
 Feed'in resmi GTFS Schedule Reference'a göre yayınlanabilirlik durumunu ölçer. Skor **100'den başlar**; yayını engelleyen her sorun, kuralın ağırlığı ve düzeltme maliyetiyle orantılı bir ceza düşürür.
 
 **Skor nasıl oluşur:**
+
 - Yalnızca `Spec` sınıfındaki `Kritik` seviyeli sorunlar (resmi GTFS spec kapısı) Yayın Skorunu etkiler. `Interop` uyumluluk sinyalleri ayrı raporlanır (Interop Skoru / R8).
 - Aynı kural birden fazla kez tetiklenirse ceza **en fazla 2 katıyla** sınırlıdır; tek bir sorunun tüm skoru sıfırlaması engellenir.
 - **0–40:** Feed büyük olasılıkla tüketilemez. Blocker hatalar var.
@@ -565,6 +566,7 @@ Feed'in resmi GTFS Schedule Reference'a göre yayınlanabilirlik durumunu ölçe
 Spec, Interop, Quality ve Analytics sınıflarının ağırlıklı ortalamasıdır (Spec×40% + Interop×30% + Quality×20% + Analytics×10%). Spesifikasyon uyumunun ötesinde operasyonel veri kalitesini de yansıtır.
 
 **Skor nasıl oluşur:**
+
 - Dört sınıfın tümündeki sorunlar bu skoru etkiler.
 - `Spec` ve `Interop` sınıfları daha ağır; `Quality` ve `Analytics` veri kalitesi ve servis deseni boyutlarını temsil eder.
 - **0–60:** Önemli kalite sorunları, yolcu deneyimi etkileniyor olabilir.
@@ -578,13 +580,15 @@ Spec, Interop, Quality ve Analytics sınıflarının ağırlıklı ortalamasıd�
 ## Rapor Sekmeleri
 
 ### 1. Rapor
+
 Genel özet: iki skor, feed metrikleri (hat sayısı, sefer sayısı, tarih aralığı vb.) ve sorun dağılım grafiği.
 
 ### 2. Ayrıntı ve Düzeltme
+
 Bulunan sorunlar öncelik puanına göre sıralanmış bir düzeltme kuyruğu olarak sunulur. Her satır şu bilgileri içerir:
 
 | Sütun | Açıklama |
-|---|---|
+| --- | --- |
 | **Skor** | Öncelik puanı — `Ciddiyet × (1 + Bağımlı) × log₂(1 + Etkilenen) / Çaba` formülüyle hesaplanır; yüksek = önce düzelt |
 | **+Yayın** | Bu kural düzeltilirse Yayın Skoru kaç puan artar |
 | **+Skor** | Bu kural düzeltilirse Genel Skor kaç puan artar |
@@ -594,9 +598,11 @@ Bulunan sorunlar öncelik puanına göre sıralanmış bir düzeltme kuyruğu ol
 Tüm satırların +Yayın toplamı `100 − mevcut Yayın Skoru`na, +Skor toplamı `100 − mevcut Genel Skor`a eşittir. Coğrafi sorunlarda harita ikonu görünür; tıklandığında sorunlu noktalar ve ilgili şekil/durak verileri interaktif haritada gösterilir. **Kural kodu**na tıklandığında ilgili GTFS spesifikasyon bölümü yeni sekmede açılır — bulgunun en çok etkilediği dosyanın referans sayfası (GTFS-JP kurallarında gtfs.jp).
 
 ### 3. Kategori Bazlı
+
 Tüm kural ihlalleri grup ve sınıfa göre listelenir. Her satırda kural kodu, başlık, etkilenen kayıt sayısı, önem seviyesi ve düzeltme önerisi yer alır. Filtreleme ve sıralama desteklenir.
 
 ### 4. Dışa Aktar
+
 Raporu HTML, CSV veya JSON olarak indirir. PDF seçeneği tarayıcının yazdırma diyaloğunu açar — "PDF olarak kaydet" ile kaydedebilirsiniz.
 
 ---
@@ -651,7 +657,7 @@ Karşılaştırma tamamen tarayıcı içinde çalışır. Golden JSON tarayıcı
 ## Kural Sınıfları
 
 | Sınıf | Ne ölçer | Hangi skoru etkiler |
-|---|---|---|
+| --- | --- | --- |
 | **Spec** | GTFS spesifikasyonuna aykırılık — zorunlu alan eksikliği, geçersiz değer, referans bütünlüğü hatası | Yayın |
 | **Interop** | Spese uygun ama yaygın tüketicilerin (Google Maps, Apple Maps vb.) reddettiği veya yanlış yorumladığı durumlar | Yayın |
 | **Quality** | İsteğe bağlı ama beklenen alanların eksikliği, tutarsızlıklar, en iyi pratikten sapmalar | Kalite |
@@ -662,7 +668,7 @@ Karşılaştırma tamamen tarayıcı içinde çalışır. Golden JSON tarayıcı
 ## Önem Seviyeleri
 
 | Seviye | Anlamı |
-|---|---|
+| --- | --- |
 | **Kritik** | Feed kullanılamaz hale getirir veya veri kaybına yol açar |
 | **Yüksek** | Önemli işlevsellik sorunu, düzeltilmesi güçlü önerilir |
 | **Orta** | Dikkat gerektiren tutarsızlık |
@@ -695,7 +701,7 @@ GTFS-JP feed'leri için **JPN** grubu kuralları, resmî [GTFS-JP spesifikasyonu
 Büyük feed'lerde aynı kural binlerce satırda tetiklenebilir. Sınırsız bulgu listesi hem tarayıcı belleğini zorlar hem de okunabilirliği düşürür. Bu nedenle iki katmanlı bir sınır uygulanır:
 
 | Sınır | Değer | Kapsam |
-|---|---|---|
+| --- | --- | --- |
 | Kural başına (varsayılan) | 500 | Tüm kurallar |
 | Kural başına (yüksek) | 2.000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
 | Toplam (tüm kurallar) | 100.000 | Feed geneli — aşılırsa doğrulama durur |
@@ -709,7 +715,7 @@ Yüksek cap listesindeki kurallar gerçek feed'lerde doğal olarak yüksek sayı
 Her kural `GRUP_NNN` formatında kodlanır. Gruplar GTFS dosya ve bileşen sınırlarını takip eder.
 
 | Grup | GTFS Bileşeni | Açıklama |
-|---|---|---|
+| --- | --- | --- |
 | **ARC** | Arşiv / dosya seviyesi | ZIP açılması, dosya formatı, zorunlu dosya varlığı, karakter kodlaması |
 | **AGN** | `agency.txt` | Acente bilgileri ve çoklu acente tutarlılığı |
 | **CAL** | `calendar.txt` | Servis takvimleri ve haftalık gün desenleri |

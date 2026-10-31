@@ -120,7 +120,12 @@ tasks.register<Copy>("copyNativeLib") {
 tasks.register("buildNativeForCurrentPlatform") {
     doLast {
         val repoRoot = rootDir.parentFile // kotlin/ is a direct child of the repo root
+        // providers.exec is lazy: it returns an ExecOutput provider and the process only runs
+        // when its result is read. Without `.result.get()` cargo never ran, and the copy below
+        // silently picked up a stale (or absent) target/release lib. `.get()` also fails the
+        // task on a non-zero cargo exit.
         providers.exec { workingDir = repoRoot; commandLine("cargo", "build", "--release", "-p", "gtfs-analyzer-jvm") }
+            .result.get()
         val os = org.gradle.internal.os.OperatingSystem.current()
         val arch = System.getProperty("os.arch")
         val tag = when {
@@ -131,6 +136,7 @@ tasks.register("buildNativeForCurrentPlatform") {
         }
         val ext = if (os.isMacOsX) "dylib" else "so"
         val built = repoRoot.resolve("target/release/libgtfs_jvm.$ext")
+        check(built.isFile) { "cargo build finished but $built does not exist" }
         copy {
             from(built)
             into(layout.projectDirectory.dir("src/main/resources/natives/$tag"))

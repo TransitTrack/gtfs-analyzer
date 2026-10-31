@@ -37,7 +37,7 @@ GTFS Validator & Analyzer prolonge la validation de la spécification par une an
 ### Matrice de fonctionnalités
 
 | Fonctionnalité | MobilityData | GTFS Analyzer |
-|---|:---:|:---:|
+| --- | :---: | :---: |
 | Interface web | ✅ | ✅ |
 | Les données ne quittent jamais le navigateur | ❌ | ✅ |
 | Règles de conformité à la spécification | ✅ | ✅ |
@@ -64,7 +64,7 @@ L’exactitude ne se démontre pas avec une poignée de jeux de données. Chaque
 D’après la dernière exécution (`40411348163` : 4 435 jeux tentés, 4 403 ZIP valides téléchargés et les deux validateurs ayant abouti sur **4 390** jeux) :
 
 | | GTFS Analyzer | MobilityData |
-|---|---|---|
+| --- | --- | --- |
 | Temps d’exécution médian | **0,05 s** | 2,77 s |
 | Pic mémoire médian | **15 Mo** | 332 Mo |
 | ZIP téléchargés non terminés | **0** | 13 |
@@ -86,7 +86,7 @@ Les chiffres ci-dessous proviennent de l’exécution `40411348163` : même arch
 Jeu de données : `mdb-53` · 14 lignes, 291 arrêts, 6 377 courses · 1,0 Mo
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Signalements totaux | 2 716 | 1 027 |
 | Critique / Error | 2 | 2 |
 | Élevé / Warning | 2 653 | 2 |
@@ -103,7 +103,7 @@ Jeu de données : `mdb-53` · 14 lignes, 291 arrêts, 6 377 courses · 1,0 Mo
 Jeu de données : `mdb-247` · 82 lignes, 6 031 arrêts, 67 957 courses · 41,4 Mo
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Signalements totaux | 31 | 4 690 |
 | Critique / Error | 0 | 0 |
 | Élevé / Warning | 20 | 1 |
@@ -122,7 +122,7 @@ Jeu de données : `mdb-247` · 82 lignes, 6 031 arrêts, 67 957 courses · 41,4 
 Jeu de données : `mdb-3175` · 6,8 Mo · **profil GTFS-JP**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Signalements totaux | 1 673 | 3 095 |
 | Critique / Error | 0 | 0 |
 | Élevé / Warning | 301 | 10 |
@@ -141,7 +141,7 @@ Jeu de données : `mdb-3175` · 6,8 Mo · **profil GTFS-JP**
 Jeu de données : `mdb-782` · 1 254 lignes, 41 904 arrêts, 183 349 courses, 14 189 tracés · **62,5 Mo**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Signalements totaux | 11 573 | 19 979 |
 | Critique / Error | 5 | 0 |
 | Élevé / Warning | 10 704 | 788 |
@@ -170,7 +170,7 @@ GTFS Analyzer reconnaît automatiquement **GTFS-JP**, le profil GTFS national du
 **Règles de profil (groupe JPN).**
 
 | Règle | Contrôle |
-|---|---|
+| --- | --- |
 | **JPN_001** | Lecture kana (よみがな — `translations.txt`, `ja-Hrkt`) des noms d’arrêt ; exigée par GTFS-JP pour les annonces sonores et la recherche |
 | **JPN_002** | `jp_office_id` (dans `trips.txt` **ou** `routes.txt`) doit correspondre à un `office_id` défini dans `office_jp.txt` (intégrité référentielle du bureau d’exploitation) |
 | **JPN_003** | L’`agency_id` de `agency_jp.txt` doit être défini dans `agency.txt` (intégrité référentielle de l’exploitant) |
@@ -264,7 +264,7 @@ Même lorsque l’interface ne conserve qu’un nombre limité d’exemples de s
 Le même moteur de validation à 619 règles est accessible par sept parcours ; chaque interface présente le résultat selon son usage :
 
 | Voie | Idéal pour | Où vont les données |
-|---|---|---|
+| --- | --- | --- |
 | **Navigateur** ([application](https://ttezer.github.io/gtfs-analyzer/)) | Examiner un jeu de données avec la carte et le rapport | **Nulle part** — WebAssembly sur l’appareil |
 | **CLI** (`cargo install gtfs-analyzer`, ou un binaire précompilé) | Validation par lots, scripts et intégration Python | Nulle part — binaire local |
 | **Bibliothèque Rust** ([`gtfs-pipeline`](https://crates.io/crates/gtfs-pipeline)) | Intégrer la validation dans votre propre service Rust | Nulle part — votre propre processus |
@@ -299,9 +299,9 @@ Pour intégrer la validation dans votre propre service Rust, utilisez directemen
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.0"
-gtfs-config   = "0.17.0"
-gtfs-core     = "0.17.0"
+gtfs-pipeline = "0.17.1"
+gtfs-config   = "0.17.1"
+gtfs-core     = "0.17.1"
 ```
 
 ```rust
@@ -327,7 +327,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### Paquet npm `gtfs-sdk`
 
-`gtfs-sdk` expose le moteur de validation v0.17.0 sous forme d’API JavaScript/TypeScript typée. Le jeu de données est validé par WASM local et ne quitte jamais l’application :
+`gtfs-sdk` expose le moteur de validation v0.17.1 sous forme d’API JavaScript/TypeScript typée. Le jeu de données est validé par WASM local et ne quitte jamais l’application :
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -402,7 +402,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 ### `validate` — validation d’un jeu de données
 
 | Option | Description |
-|---|---|
+| --- | --- |
 | `--json` | Écrit le résultat complet en JSON |
 | `--summary` | Résumé court : statut, nombre de signalements, scores (par défaut ; incompatible avec `--json`) |
 | `--rule SHP_010` | Uniquement les signalements de la règle indiquée |
@@ -513,7 +513,7 @@ La page de règles actuelle de MobilityData est incohérente en interne au sujet
 ### Seuils de vitesse
 
 | Paramètre | Défaut | Plage | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Vitesse max. bus | 120 km/h | 60–200 | Vitesse maximale autorisée pour les courses de bus |
 | Vitesse max. tramway | 100 km/h | 40–160 | Vitesse maximale autorisée pour les courses de tramway |
 | Vitesse max. métro | 150 km/h | 80–250 | Vitesse maximale autorisée pour les courses de métro |
@@ -524,7 +524,7 @@ La page de règles actuelle de MobilityData est incohérente en interne au sujet
 ### Seuils géographiques et de correspondance
 
 | Paramètre | Défaut | Plage | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Temps de correspondance min. | 180 s | 30–1800 | Temps de correspondance minimal |
 | Distance de correspondance max. | 500 m | 50–2000 | Distance maximale pour qu’une correspondance soit considérée comme valide |
 | Saut de tracé max. | 10 km | 1–50 | Distance maximale entre deux points de tracé consécutifs |
@@ -535,7 +535,7 @@ La page de règles actuelle de MobilityData est incohérente en interne au sujet
 ### Seuils de service et d’exploitation
 
 | Paramètre | Défaut | Plage | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Alerte d’expiration | 30 jours | 1–60 | Alerte émise si le jeu de données expire dans ce délai |
 | Alerte d’expiration Feed Info | 7 jours | 1–60 | Horizon `FIN_019` par défaut pour `feed_info.feed_end_date` ; la parité MobilityData à 30 jours s’applique avec `feed_info_expiry_warning_days=30`, distinct de `CAL_008` |
 | Seuil d’interruption de service | 7 jours | 3–30 | Les interruptions de service plus longues sont signalées |
@@ -553,6 +553,7 @@ La page de règles actuelle de MobilityData est incohérente en interne au sujet
 Mesure la publiabilité du jeu de données au regard de la référence officielle GTFS Schedule. Le score **part de 100** ; chaque problème bloquant la publication retranche une pénalité proportionnelle au poids de la règle et au coût de correction.
 
 **Mode de calcul :**
+
 - Seuls les problèmes de classe `Spec` et de gravité `Critique` (la barrière officielle de la spécification GTFS) affectent le score de publication. Les signaux de compatibilité `Interop` sont rapportés séparément (score Interop / R8).
 - Si une même règle se déclenche plusieurs fois, la pénalité est plafonnée à **2×** ; un problème isolé ne peut pas ramener le score à zéro.
 - **0–40 :** le jeu de données est probablement inexploitable. Des erreurs bloquantes sont présentes.
@@ -565,6 +566,7 @@ Mesure la publiabilité du jeu de données au regard de la référence officiell
 Moyenne pondérée des quatre classes d’analyse : Spec×40 % + Interop×30 % + Quality×20 % + Analytics×10 %. Reflète à la fois la conformité à la spécification et la qualité opérationnelle des données. Un jeu de données peut être publiable tout en ayant un score global faible.
 
 **Mode de calcul :**
+
 - Les problèmes des quatre classes (Spec, Interop, Quality, Analytics) affectent ce score selon leurs poids respectifs.
 - Champs facultatifs manquants, schémas de service incohérents et lacunes d’accessibilité s’y reflètent via les composantes Quality et Analytics.
 - **0–60 :** problèmes de qualité importants ; l’expérience voyageur peut en pâtir.
@@ -578,13 +580,15 @@ Moyenne pondérée des quatre classes d’analyse : Spec×40 % + Interop×30 % +
 ## Onglets du rapport
 
 ### 1. Rapport
+
 Vue de synthèse : les deux scores, les métriques du jeu de données (nombre de lignes, nombre de courses, plage de dates, etc.) et un graphique de répartition des signalements.
 
 ### 2. Détails et correction
+
 Les problèmes sont présentés sous forme de file de correction priorisée, triée par score de priorité. Chaque ligne contient :
 
 | Colonne | Description |
-|---|---|
+| --- | --- |
 | **Score** | Score de priorité — calculé comme `Gravité × (1 + Dépendantes) × log₂(1 + Nombre) / Effort` ; plus élevé = à corriger en premier |
 | **+Pub** | Gain de score de publication si cette règle est corrigée |
 | **+Score** | Gain de score global si cette règle est corrigée |
@@ -594,9 +598,11 @@ Les problèmes sont présentés sous forme de file de correction priorisée, tri
 La somme de toutes les valeurs +Pub égale `100 − score de publication actuel` ; la somme de toutes les valeurs +Score égale `100 − score global actuel`. Les problèmes géographiques affichent une icône de carte ; un clic présente l’emplacement du problème et les données de tracé ou d’arrêt associées sur une carte interactive. Un clic sur le **code de règle** ouvre la section pertinente de la spécification GTFS dans un nouvel onglet — la page de référence du fichier le plus concerné par le signalement (gtfs.jp pour les règles GTFS-JP).
 
 ### 3. Par catégorie
+
 Toutes les violations de règles listées par groupe et par classe. Chaque ligne indique le code de règle, le titre, le nombre d’enregistrements concernés, la gravité et l’aide à la correction. Le filtrage et le tri sont possibles.
 
 ### 4. Exporter
+
 Téléchargez le rapport en HTML, CSV ou JSON. L’option PDF ouvre la boîte de dialogue d’impression du navigateur — utilisez « Enregistrer en PDF » pour exporter.
 
 ---
@@ -651,7 +657,7 @@ La comparaison s’exécute entièrement dans le navigateur. Le Golden JSON est 
 ## Classes de règles
 
 | Classe | Ce qu’elle mesure | Influe sur |
-|---|---|---|
+| --- | --- | --- |
 | **Spec** | Écarts par rapport à la spécification GTFS — champs obligatoires manquants, valeurs invalides, erreurs d’intégrité référentielle | Score de publication |
 | **Interop** | Conforme à la spécification mais rejeté ou mal interprété par les consommateurs courants (Google Maps, Apple Plans, etc.) | Score de publication |
 | **Quality** | Champs facultatifs mais attendus manquants, incohérences, écarts aux bonnes pratiques | Score global |
@@ -662,7 +668,7 @@ La comparaison s’exécute entièrement dans le navigateur. Le Golden JSON est 
 ## Niveaux de gravité
 
 | Niveau | Signification |
-|---|---|
+| --- | --- |
 | **Critique** | Rend le jeu de données inexploitable ou provoque une perte de données |
 | **Élevée** | Problème fonctionnel important ; correction fortement recommandée |
 | **Moyenne** | Incohérence méritant attention |
@@ -695,7 +701,7 @@ Pour les jeux de données GTFS-JP, les règles du groupe **JPN** se fondent sur 
 Dans les gros jeux de données, une même règle peut se déclencher des milliers de fois. Des listes de signalements illimitées saturent la mémoire du navigateur et nuisent à la lisibilité. Un plafond à deux niveaux est appliqué :
 
 | Plafond | Valeur | Portée |
-|---|---|---|
+| --- | --- | --- |
 | Par règle (défaut) | 500 | Toutes les règles |
 | Par règle (élevé) | 2 000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
 | Total (toutes règles) | 100 000 | À l’échelle du jeu de données — la validation s’arrête si ce total est dépassé |
@@ -709,7 +715,7 @@ Les règles du plafond élevé produisent naturellement de grands décomptes sur
 Chaque règle est codée `GROUPE_NNN`. Les groupes suivent les limites des fichiers et des composants GTFS.
 
 | Groupe | Composant GTFS | Description |
-|---|---|---|
+| --- | --- | --- |
 | **ARC** | Archive / niveau fichier | Extraction du ZIP, format de fichier, présence des fichiers obligatoires, encodage des caractères |
 | **AGN** | `agency.txt` | Informations sur l’agence et cohérence multi-agences |
 | **CAL** | `calendar.txt` | Calendriers de service et schémas hebdomadaires |

@@ -19,7 +19,7 @@ The package requires Node.js 20+ in Node environments. In browsers, pass a
 The package ships two builds of the same engine and picks one on first use:
 
 | Engine | Chosen when | Input limit |
-|---|---|---|
+| --- | --- | --- |
 | `wasm64-serial` | the runtime supports Memory64: Node.js 24+, current Chrome/Firefox | 2 GiB |
 | `wasm32-serial` | otherwise (Node.js 20/22, browsers without Memory64) | 512 MiB |
 
@@ -263,7 +263,7 @@ The `config` object is merged over the defaults. Only known keys are accepted.
 `ValidatorConfigDelta` exposes every accepted key in TypeScript, so misspelled
 configuration properties are rejected during type-checking when supplied as
 object literals, in addition to the engine's runtime validation.
-The values below are the default thresholds used by the `0.17.0` validator engine.
+The values below are the default thresholds used by the `0.17.1` validator engine.
 
 | Key | Default | Unit / purpose |
 | --- | ---: | --- |
@@ -385,7 +385,7 @@ Runnable examples are included in the package repository:
 ```ts
 import { getVersion } from 'gtfs-sdk';
 
-getVersion(); // { sdk: '0.8.0', engine: '0.17.0' }
+getVersion(); // { sdk: '0.8.0', engine: '0.17.1' }
 ```
 
 The generated `gtfs-wasm` binding is an internal implementation detail and is not

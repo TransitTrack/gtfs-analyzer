@@ -37,7 +37,7 @@ GTFS Validator & Analyzer extends specification validation with operational qual
 ### Feature Matrix
 
 | Feature | MobilityData | GTFS Analyzer |
-|---|:---:|:---:|
+| --- | :---: | :---: |
 | Web interface | ✅ | ✅ |
 | Data never leaves the browser | ❌ | ✅ |
 | Spec compliance rules | ✅ | ✅ |
@@ -64,7 +64,7 @@ Accuracy cannot be shown with a handful of feeds. Every release is run against t
 From the most recent run (`40411348163`: 4,435 feeds attempted, 4,403 valid ZIPs downloaded, and both validators completed on **4,390** feeds):
 
 | | GTFS Analyzer | MobilityData |
-|---|---|---|
+| --- | --- | --- |
 | Median wall time | **0.05 s** | 2.77 s |
 | Median peak memory | **15 MB** | 332 MB |
 | Downloaded ZIPs not completed | **0** | 13 |
@@ -86,7 +86,7 @@ The figures below come from corpus run `40411348163`: the same archive and the s
 Feed: `mdb-53` · 14 routes, 291 stops, 6,377 trips · 1.0 MB
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Total findings | 2,716 | 1,027 |
 | Critical / Error | 2 | 2 |
 | High / Warning | 2,653 | 2 |
@@ -103,7 +103,7 @@ Feed: `mdb-53` · 14 routes, 291 stops, 6,377 trips · 1.0 MB
 Feed: `mdb-247` · 82 routes, 6,031 stops, 67,957 trips · 41.4 MB
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Total findings | 31 | 4,690 |
 | Critical / Error | 0 | 0 |
 | High / Warning | 20 | 1 |
@@ -122,7 +122,7 @@ Feed: `mdb-247` · 82 routes, 6,031 stops, 67,957 trips · 41.4 MB
 Feed: `mdb-3175` · 6.8 MB · **GTFS-JP profile**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Total findings | 1,673 | 3,095 |
 | Critical / Error | 0 | 0 |
 | High / Warning | 301 | 10 |
@@ -141,7 +141,7 @@ Feed: `mdb-3175` · 6.8 MB · **GTFS-JP profile**
 Feed: `mdb-782` · 1,254 routes, 41,904 stops, 183,349 trips, 14,189 shapes · **62.5 MB**
 
 | | MobilityData | GTFS Analyzer |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Total findings | 11,573 | 19,979 |
 | Critical / Error | 5 | 0 |
 | High / Warning | 10,704 | 788 |
@@ -170,7 +170,7 @@ GTFS Analyzer automatically recognizes **GTFS-JP**, Japan's national GTFS profil
 **Profile rules (JPN group).**
 
 | Rule | Check |
-|---|---|
+| --- | --- |
 | **JPN_001** | Kana reading (よみがな — `translations.txt`, `ja-Hrkt`) for stop names; required by GTFS-JP for voice announcements and search |
 | **JPN_002** | `jp_office_id` (in `trips.txt` **or** `routes.txt`) must match an `office_id` defined in `office_jp.txt` (operating-office referential integrity) |
 | **JPN_003** | `agency_jp.txt` `agency_id` must be defined in `agency.txt` (operator referential integrity) |
@@ -262,7 +262,7 @@ Even when the UI retains a limited number of finding examples for performance, t
 The same 619-rule validation engine is available through seven paths; each interface presents the result for its own use case:
 
 | Path | Best for | Where the data goes |
-|---|---|---|
+| --- | --- | --- |
 | **Browser** ([app](https://ttezer.github.io/gtfs-analyzer/)) | Inspecting one feed with the map and report | **Nowhere** — on-device WebAssembly |
 | **CLI** (`cargo install gtfs-analyzer`, or a prebuilt binary) | Batch validation, scripting, and Python integration | Nowhere — local binary |
 | **Rust library** ([`gtfs-pipeline`](https://crates.io/crates/gtfs-pipeline)) | Embedding validation in your own Rust service | Nowhere — your own process |
@@ -296,9 +296,9 @@ To embed validation in your own Rust service, use `gtfs-pipeline` directly — n
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.0"
-gtfs-config   = "0.17.0"
-gtfs-core     = "0.17.0"
+gtfs-pipeline = "0.17.1"
+gtfs-config   = "0.17.1"
+gtfs-core     = "0.17.1"
 ```
 
 ```rust
@@ -324,7 +324,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### `gtfs-sdk` npm package
 
-`gtfs-sdk` exposes the v0.17.0 validation engine as a typed JavaScript/TypeScript API. The feed is validated with local WASM and never leaves the application:
+`gtfs-sdk` exposes the v0.17.1 validation engine as a typed JavaScript/TypeScript API. The feed is validated with local WASM and never leaves the application:
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -398,7 +398,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 ### `validate` — feed validation
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `--json` | Writes the full result as JSON |
 | `--summary` | Short summary: status, notice count, scores (default; cannot be combined with `--json`) |
 | `--rule SHP_010` | Only notices for the given rule |
@@ -509,7 +509,7 @@ MobilityData's current rules page is internally inconsistent for `fast_travel_be
 ### Speed Thresholds
 
 | Parameter | Default | Range | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Max Bus Speed | 120 km/h | 60–200 | Maximum allowed speed for bus trips |
 | Max Tram Speed | 100 km/h | 40–160 | Maximum allowed speed for tram trips |
 | Max Metro Speed | 150 km/h | 80–250 | Maximum allowed speed for metro trips |
@@ -520,7 +520,7 @@ MobilityData's current rules page is internally inconsistent for `fast_travel_be
 ### Geographic and Transfer Thresholds
 
 | Parameter | Default | Range | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Min Transfer Time | 180 s | 30–1800 | Minimum connection time for transfers |
 | Max Transfer Distance | 500 m | 50–2000 | Maximum distance for a transfer to be considered valid |
 | Max Route Jump | 10 km | 1–50 | Maximum distance between consecutive shape points |
@@ -531,7 +531,7 @@ MobilityData's current rules page is internally inconsistent for `fast_travel_be
 ### Service and Operational Thresholds
 
 | Parameter | Default | Range | Description |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | Expiry Warning | 30 days | 1–60 | Warning generated if feed expires within this many days |
 | Feed Info Expiry Warning | 7 days | 1–60 | Default `FIN_019` horizon for `feed_info.feed_end_date`; the 30-day MobilityData parity is applicable when `feed_info_expiry_warning_days=30`, separate from `CAL_008` |
 | Service Gap Threshold | 7 days | 3–30 | Service gaps longer than this are flagged |
@@ -549,6 +549,7 @@ MobilityData's current rules page is internally inconsistent for `fast_travel_be
 Measures whether the feed is publishable per the official GTFS Schedule Reference. The score **starts at 100**; each publication-blocking issue deducts a penalty proportional to the rule's weight and remediation cost.
 
 **How the score is computed:**
+
 - Only `Spec` class issues at `Critical` severity (the official GTFS spec gate) affect the Publish Score. `Interop` compatibility signals are reported separately (Interop Score / R8).
 - If the same rule fires multiple times, the penalty is capped at **2×**; a single issue cannot drive the score to zero.
 - **0–40:** Feed is likely unusable. Blocker errors present.
@@ -561,6 +562,7 @@ Measures whether the feed is publishable per the official GTFS Schedule Referenc
 Weighted average of all four analysis classes: Spec×40% + Interop×30% + Quality×20% + Analytics×10%. Reflects both specification compliance and operational data quality. A feed can be publishable while still having a low Overall Score.
 
 **How the score is computed:**
+
 - Issues from all four classes (Spec, Interop, Quality, Analytics) affect this score according to their weights.
 - Missing optional fields, inconsistent service patterns, and accessibility gaps are reflected here via the Quality and Analytics components.
 - **0–60:** Significant quality issues; passenger experience may be affected.
@@ -574,13 +576,15 @@ Weighted average of all four analysis classes: Spec×40% + Interop×30% + Qualit
 ## Report Tabs
 
 ### 1. Report
+
 Summary overview: both scores, feed metrics (route count, trip count, date range, etc.), and a notice distribution chart.
 
 ### 2. Detail & Fix
+
 Issues are presented as a prioritized fix queue, sorted by priority score. Each row contains:
 
 | Column | Description |
-|---|---|
+| --- | --- |
 | **Score** | Priority score — computed as `Severity × (1 + Dependent) × log₂(1 + Count) / Effort`; higher = fix first |
 | **+Pub** | Publish Score gain if this rule is fixed |
 | **+Score** | Overall Score gain if this rule is fixed |
@@ -590,9 +594,11 @@ Issues are presented as a prioritized fix queue, sorted by priority score. Each 
 The sum of all +Pub values equals `100 − current Publish Score`; the sum of all +Score values equals `100 − current Overall Score`. Geographic issues show a map icon; clicking it displays the problem location and related shape/stop data on an interactive map. Clicking the **rule code** opens the relevant GTFS specification section in a new tab — the reference page of the file the finding most affects (gtfs.jp for GTFS-JP rules).
 
 ### 3. By Category
+
 All rule violations listed by group and class. Each row shows the rule code, title, affected record count, severity, and remediation guidance. Filtering and sorting are supported.
 
 ### 4. Export
+
 Download the report as HTML, CSV, or JSON. The PDF option opens the browser's print dialog — use "Save as PDF" to export.
 
 ---
@@ -647,7 +653,7 @@ The comparison runs entirely in the browser. The Golden JSON is parsed locally; 
 ## Rule Classes
 
 | Class | What it measures | Affects |
-|---|---|---|
+| --- | --- | --- |
 | **Spec** | Deviations from the GTFS specification — missing required fields, invalid values, referential integrity errors | Publish Score |
 | **Interop** | Spec-compliant but rejected or misinterpreted by common consumers (Google Maps, Apple Maps, etc.) | Publish Score |
 | **Quality** | Missing optional but expected fields, inconsistencies, deviations from best practices | Overall Score |
@@ -658,7 +664,7 @@ The comparison runs entirely in the browser. The Golden JSON is parsed locally; 
 ## Severity Levels
 
 | Level | Meaning |
-|---|---|
+| --- | --- |
 | **Critical** | Makes the feed unusable or causes data loss |
 | **High** | Significant functional issue; strongly recommended to fix |
 | **Medium** | Inconsistency that warrants attention |
@@ -691,7 +697,7 @@ For GTFS-JP feeds, the **JPN** group rules are based on the official [GTFS-JP sp
 In large feeds the same rule can fire thousands of times. Unlimited notice lists strain browser memory and reduce readability. A two-tier cap is applied:
 
 | Limit | Value | Scope |
-|---|---|---|
+| --- | --- | --- |
 | Per rule (default) | 500 | All rules |
 | Per rule (high) | 2,000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
 | Total (all rules) | 100,000 | Feed-wide — validation stops if exceeded |
@@ -705,7 +711,7 @@ Rules in the high-cap list naturally produce large counts in real feeds (e.g., o
 Each rule is coded as `GROUP_NNN`. Groups follow GTFS file and component boundaries.
 
 | Group | GTFS Component | Description |
-|---|---|---|
+| --- | --- | --- |
 | **ARC** | Archive / file level | ZIP extraction, file format, required file presence, character encoding |
 | **AGN** | `agency.txt` | Agency information and multi-agency consistency |
 | **CAL** | `calendar.txt` | Service calendars and weekly day patterns |
