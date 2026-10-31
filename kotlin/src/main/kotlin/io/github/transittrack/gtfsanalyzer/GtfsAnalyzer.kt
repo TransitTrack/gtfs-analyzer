@@ -1,11 +1,14 @@
 package io.github.transittrack.gtfsanalyzer
 
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import java.nio.file.Files
-import java.nio.file.Path
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.todayIn
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.readByteArray
+import kotlin.time.Clock
 
 /**
  * The SDK's sole public entry point: validates a GTFS feed using the shared Rust validation
@@ -26,13 +29,13 @@ object GtfsAnalyzer {
      */
     fun validate(
         feed: ByteArray,
-        today: LocalDate = LocalDate.now(),
+        today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault()),
         config: ValidatorConfigDelta = ValidatorConfigDelta(),
         includeNameIndex: Boolean = false,
         lang: String = "en",
     ): EngineResult {
         loadNativeLibrary()
-        val todayInt = today.format(DateTimeFormatter.BASIC_ISO_DATE).toInt() // YYYYMMDD
+        val todayInt = today.format(LocalDate.Formats.ISO_BASIC).toInt() // YYYYMMDD
         val configJson = EngineJson.encodeToString(config)
         val json = GtfsAnalyzerNative.validate(feed, todayInt, configJson, includeNameIndex, lang)
         return EngineJson.decodeFromString(json)
@@ -45,16 +48,19 @@ object GtfsAnalyzer {
      * read of [feedPath]). Typically completes in well under a second; callers on a coroutine
      * dispatcher should wrap this with `withContext(Dispatchers.IO)`.
      *
-     * Throws `java.io.IOException` (including `NoSuchFileException`) if [feedPath] cannot be
+     * Throws `kotlinx.io.IOException` (including `kotlinx.io.files.FileNotFoundException`) if [feedPath] cannot be
      * read, [UnsupportedPlatformException] or [NativeLibraryLoadException] if the bundled native
      * library can't be loaded, [GtfsEngineException] if the native engine panics, or
      * `IllegalArgumentException` if [config] or [lang] is rejected by the engine.
      */
     fun validate(
         feedPath: Path,
-        today: LocalDate = LocalDate.now(),
+        today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault()),
         config: ValidatorConfigDelta = ValidatorConfigDelta(),
         includeNameIndex: Boolean = false,
         lang: String = "en",
-    ): EngineResult = validate(Files.readAllBytes(feedPath), today, config, includeNameIndex, lang)
+    ): EngineResult {
+        val feed = SystemFileSystem.source(feedPath).buffered().use { it.readByteArray() }
+        return validate(feed, today, config, includeNameIndex, lang)
+    }
 }

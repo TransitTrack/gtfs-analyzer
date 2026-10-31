@@ -2,9 +2,11 @@ use gtfs_config::{merge_delta, ValidatorConfig};
 use gtfs_core::i18n::{Lang, Translator};
 use gtfs_core::{NameIndex, ValidateResult};
 use gtfs_pipeline::validate_bytes;
+use jni::errors::ThrowRuntimeExAndDefault;
 use jni::objects::{JByteArray, JClass, JString};
+use jni::strings::{JNIStr, JNIString};
 use jni::sys::{jboolean, jint};
-use jni::JNIEnv;
+use jni::{jni_str, Env, EnvUnowned};
 
 /// Validate one GTFS ZIP buffer using the shared Rust validation pipeline.
 pub fn validate_to_json(
@@ -77,6 +79,22 @@ pub fn validate_guarded(
     catch_unwind_to_outcome(|| validate_to_json(feed, today, config_json, include_name_index, lang))
 }
 
+/// Throws a new `class` exception with `msg` and returns the null `JString` that JNI requires
+/// as this native method's return value while an exception is pending.
+///
+/// The `throw_new` result is ignored: if throwing itself fails (e.g. the class can't be found),
+/// the JVM has already set a different pending exception, which is just as good for the caller.
+/// No further JNI call is made afterwards — the JNI spec forbids most calls while an exception
+/// is pending — and the null `JString` is built without touching the JVM at all.
+fn throw_and_return_null<'local>(
+    env: &mut Env<'local>,
+    class: &JNIStr,
+    msg: impl AsRef<str>,
+) -> jni::errors::Result<JString<'local>> {
+    let _ = env.throw_new(class, JNIString::new(msg));
+    Ok(JString::default())
+}
+
 /// JNI entry point for `GtfsAnalyzerNative.validate(...)` on the Kotlin side.
 ///
 /// Converts the JNI arguments to Rust types, dispatches to [`validate_guarded`],
@@ -85,17 +103,17 @@ pub fn validate_guarded(
 /// - `InvalidArgument(msg)` throws `java.lang.IllegalArgumentException` with `msg`.
 /// - `Panicked(msg)` throws `io/github/transittrack/gtfsanalyzer/GtfsEngineException` with `msg`.
 ///
-/// In both error cases a pending exception is set via `throw_new`; JNI still requires
-/// this function to return a value of its declared return type, so a null `JString`
-/// (`JString::default()`) is returned without making any further JNI call — the JVM observes
-/// the pending exception on return and discards this value, but the JNI spec forbids calling
-/// most JNI functions (including `NewStringUTF`, i.e. `env.new_string`) while an exception is
-/// pending, so building that placeholder must not touch the JVM at all.
+/// Everything runs inside [`EnvUnowned::with_env`], which also catches any panic outside
+/// [`validate_guarded`] so it can never unwind into the JVM. Any `Err` that escapes the closure
+/// (e.g. `JString::from_str` failing on JVM heap exhaustion for a very large result, realistic
+/// when `includeNameIndex=true`) is resolved by [`ThrowRuntimeExAndDefault`]: if the failed JNI
+/// call already left an exception pending it is propagated as-is, otherwise a
+/// `java.lang.RuntimeException` is thrown; either way a null `JString` is returned.
 #[no_mangle]
 pub extern "system" fn Java_io_github_transittrack_gtfsanalyzer_GtfsAnalyzerNative_validate<
     'local,
 >(
-    mut env: JNIEnv<'local>,
+    mut env: EnvUnowned<'local>,
     _class: JClass<'local>,
     feed: JByteArray<'local>,
     today: jint,
@@ -103,76 +121,61 @@ pub extern "system" fn Java_io_github_transittrack_gtfsanalyzer_GtfsAnalyzerNati
     include_name_index: jboolean,
     lang: JString<'local>,
 ) -> JString<'local> {
-    let feed_bytes = match env.convert_byte_array(&feed) {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            let _ = env.throw_new(
-                "java/lang/IllegalArgumentException",
-                format!("invalid feed byte array: {e}"),
-            );
-            // Must not make any further JNI calls now that an exception is pending (the JNI
-            // spec only permits a handful of Exception*/Release* calls in that state) — the
-            // `jni` crate's 0.21 pending-exception check turns a violation (e.g. `new_string`)
-            // into `Err(JavaException)`, so the prior `.unwrap()` here aborted the JVM process.
-            // `JString::default()` wraps a null pointer without calling into the JVM at all.
-            return JString::default();
-        }
-    };
+    env.with_env(|env| -> jni::errors::Result<JString<'local>> {
+        const ILLEGAL_ARGUMENT: &JNIStr = jni_str!("java/lang/IllegalArgumentException");
 
-    let config_json_str: String = match env.get_string(&config_json) {
-        Ok(s) => s.into(),
-        Err(e) => {
-            let _ = env.throw_new(
-                "java/lang/IllegalArgumentException",
-                format!("invalid config_json string: {e}"),
-            );
-            // See the comment on the matching branch above: no further JNI calls once an
-            // exception is pending.
-            return JString::default();
-        }
-    };
+        let feed_bytes = match env.convert_byte_array(&feed) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return throw_and_return_null(
+                    env,
+                    ILLEGAL_ARGUMENT,
+                    format!("invalid feed byte array: {e}"),
+                )
+            }
+        };
 
-    let lang_str: String = match env.get_string(&lang) {
-        Ok(s) => s.into(),
-        Err(e) => {
-            let _ = env.throw_new(
-                "java/lang/IllegalArgumentException",
-                format!("invalid lang string: {e}"),
-            );
-            // See the comment on the matching branch above: no further JNI calls once an
-            // exception is pending.
-            return JString::default();
-        }
-    };
+        let config_json_str = match config_json.try_to_string(env) {
+            Ok(s) => s,
+            Err(e) => {
+                return throw_and_return_null(
+                    env,
+                    ILLEGAL_ARGUMENT,
+                    format!("invalid config_json string: {e}"),
+                )
+            }
+        };
 
-    let include_name_index_bool = include_name_index != 0;
+        let lang_str = match lang.try_to_string(env) {
+            Ok(s) => s,
+            Err(e) => {
+                return throw_and_return_null(
+                    env,
+                    ILLEGAL_ARGUMENT,
+                    format!("invalid lang string: {e}"),
+                )
+            }
+        };
 
-    match validate_guarded(
-        &feed_bytes,
-        today as u32,
-        &config_json_str,
-        include_name_index_bool,
-        &lang_str,
-    ) {
-        // `new_string` can fail (e.g. JVM heap exhaustion on a very large result, realistic
-        // when `includeNameIndex=true`). The `jni` crate already turns that failure into a
-        // pending exception, so — same as every other branch in this function — just hand
-        // back a null `JString` (`unwrap_or_default()`, which does not touch the JVM again
-        // on the `Err` path) rather than `.unwrap()`ing and aborting the whole JVM process.
-        ValidateJvmOutcome::Json(s) => env.new_string(s).unwrap_or_default(),
-        ValidateJvmOutcome::InvalidArgument(msg) => {
-            let _ = env.throw_new("java/lang/IllegalArgumentException", msg);
-            // See the comment above: no further JNI calls once an exception is pending.
-            JString::default()
-        }
-        ValidateJvmOutcome::Panicked(msg) => {
-            let _ = env.throw_new(
-                "io/github/transittrack/gtfsanalyzer/GtfsEngineException",
+        match validate_guarded(
+            &feed_bytes,
+            today as u32,
+            &config_json_str,
+            include_name_index,
+            &lang_str,
+        ) {
+            ValidateJvmOutcome::Json(s) => JString::from_str(env, s),
+            ValidateJvmOutcome::InvalidArgument(msg) => {
+                throw_and_return_null(env, ILLEGAL_ARGUMENT, msg)
+            }
+            ValidateJvmOutcome::Panicked(msg) => throw_and_return_null(
+                env,
+                jni_str!("io/github/transittrack/gtfsanalyzer/GtfsEngineException"),
                 msg,
-            );
-            JString::default()
+            ),
         }
-    }
+    })
+    .resolve::<ThrowRuntimeExAndDefault>()
 }
 
 #[cfg(test)]

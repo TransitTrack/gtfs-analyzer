@@ -9,10 +9,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
 
 // Mirrors the Rust engine's `ValidateResult::Ok(ValidationResult) | ValidateResult::Fatal(FatalError)`
 // enum, which serde_json serializes externally-tagged as a single-key JSON object:

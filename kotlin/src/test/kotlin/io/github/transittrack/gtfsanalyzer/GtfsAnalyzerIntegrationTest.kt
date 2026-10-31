@@ -1,10 +1,10 @@
 package io.github.transittrack.gtfsanalyzer
 
+import kotlinx.datetime.LocalDate
+import kotlinx.io.IOException
+import kotlinx.io.files.Path
 import org.junit.jupiter.api.assertThrows
 import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.nio.file.Path
-import java.time.LocalDate
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
@@ -17,13 +17,13 @@ class GtfsAnalyzerIntegrationTest {
     @Test
     fun validateThrowsIOExceptionForAMissingFeedPath() {
         assertThrows<IOException> {
-            GtfsAnalyzer.validate(Path.of("/does/not/exist.zip"))
+            GtfsAnalyzer.validate(Path("/does/not/exist.zip"))
         }
     }
 
     // Same fixture bytes as crates/pipeline/tests/integration.rs's base_files(): 1 agency,
     // 2 stops, 1 route, 1 trip, one calendar entry covering 2026-05-15 (TODAY below).
-    private val TODAY: LocalDate = LocalDate.of(2026, 5, 15)
+    private val TODAY: LocalDate = LocalDate(2026, 5, 15)
 
     private fun minimalFeedZip(): ByteArray {
         val agency =

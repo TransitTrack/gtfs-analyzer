@@ -28,6 +28,8 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
+    api("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
+    api("org.jetbrains.kotlinx:kotlinx-io-core:0.9.2")
     testImplementation(kotlin("test"))
 }
 

@@ -16,7 +16,7 @@ crate-type = ["cdylib"]
 gtfs-config = { path = "../config" }
 gtfs-core = { path = "../core", features = ["i18n"] }
 gtfs-pipeline = { path = "../pipeline" }
-jni = "0.21"
+jni = "0.22.4"
 serde_json = { workspace = true }
 
 [dev-dependencies]
