@@ -294,9 +294,9 @@ ChatGPT は例外で、解析リクエストの処理中にフィードを MCP �
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.1"
-gtfs-config   = "0.17.1"
-gtfs-core     = "0.17.1"
+gtfs-pipeline = "0.18.1"
+gtfs-config   = "0.18.1"
+gtfs-core     = "0.18.1"
 ```
 
 ```rust
@@ -322,7 +322,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### `gtfs-sdk` npm パッケージ
 
-`gtfs-sdk` は v0.17.1 の検証エンジンを型付き JavaScript/TypeScript API として提供します。フィードはローカル WASM で検証され、アプリケーションの外に出ません。
+`gtfs-sdk` は v0.18.1 の検証エンジンを型付き JavaScript/TypeScript API として提供します。フィードはローカル WASM で検証され、アプリケーションの外に出ません。
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -358,6 +358,16 @@ print(len(result["notices"]))
 
 `result` は npm SDK や CLI の JSON 出力と同じ基本結果を持ちます。パラメータ、結果の構造、
 エラー型は [`python/README.md`](python/README.md)（英語）を参照してください。
+
+### コミュニティ製バインディング
+
+| 言語 | パッケージ | 保守 |
+|---|---|---|
+| Kotlin / JVM | [`io.github.transittrack:gtfs-analyzer`](https://central.sonatype.com/artifact/io.github.transittrack/gtfs-analyzer) | 本リポジトリ外の作者 |
+
+コミュニティ製バインディングは本リポジトリではテストされず、本リポジトリのリリース工程からも
+公開されません。エンジンの問題はここへ、バインディング固有の問題はパッケージ側のリポジトリへ
+報告してください。
 
 ---
 
@@ -397,6 +407,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | フラグ | 説明 |
 | --- | --- |
 | `--json` | 結果全体を JSON として出力 |
+| `--compact-json` | 機械的な利用者向けの正規コンパクト JSON 投影を出力（R9 の根本原因例は `--samples N` で追加） |
 | `--summary` | 短い要約：ステータス、通知数、スコア（デフォルト。`--json` とは併用不可） |
 | `--rule SHP_010` | 指定ルールの通知のみ |
 | `--severity critical` | この重大度に完全一致する通知のみ（critical/high/medium/low/info） |
@@ -408,6 +419,8 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | `--fail-on-class spec` | 指定クラスの通知が存在する場合のみ exit 1 |
 | `--pretty` | JSON をインデント出力（`--json` が必要） |
 | `--include-name-index` | `name_index`（停留所/路線/shape の参照表）を JSON に含める |
+| `--max-notices-per-rule 20` | JSON に残す通知をルールごとに最大 N 件にする。切り詰めたルールの実件数は `capped_totals` に入り、R1/R5/R9 は全通知から計算される（`--json` が必要） |
+| `--samples N` | `--compact-json` と併用すると、R9 の各ルールに最初の N 件の根本原因指摘（`entity_type`、`entity_id`、`file`、`line`、`field`、`observed_value`、`expected_value`）を追加 |
 | `-o report.json` | stdout ではなくファイルに出力 |
 | `--lang en` | 指摘テキストの言語：`en`（デフォルト）/ `tr` / `ja` / `fr` |
 | `--config config.json` | JSON config デルタを適用（`ValidatorConfig::default()` の上に） |
@@ -420,6 +433,22 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 パスの代わりに `-` を渡すと ZIP を **stdin** から読み込みます：`curl -sL <url> | gtfs-analyzer validate - --json`。（ZIP の中央ディレクトリはファイル末尾にあるため、アーカイブはストリーミングではなくメモリに読み込まれます。）
 
 > **Web UI とは件数が異なります。** ブラウザは性能のためルールごとの指摘件数に上限を設けます（実際の合計は `capped_totals` で報告されます）。CLI はこの上限を**適用しません** — 同じフィードでもより多くの notice と、スケーリングされていない R9 影響値が返ります。これは想定どおりの差異であり、両者の件数を直接比較しないでください。
+
+### Compact JSON と Web の上限
+
+`--compact-json` は機械的な利用者向けの正規投影です。完全な `--json` レポート
+から個別の `notices` リストと `name_index` テーブルを省略します。トップレベル
+には `status`、`engine`、`engine_version`、`engine_commit`、
+`validation_date`、`partial`、`analysis`、`reports.r1`、`reports.r5`、
+`reports.r9`、`metrics`、`notice_counts`、`triggered_rule_count` が含まれます。
+`reports.r9.items` の各要素にはルール名、重大度、クラス、メッセージ、修正方法、
+優先度、影響度、スコア差分が含まれ、`--samples N` で各要素に最大 N 件の根本原因
+例を追加できます。
+
+`--compact-json` は Web UI の payload ではなく、それ自体はルールごとの上限を
+適用しません。Web UI の表示 notice 件数を完全 JSON で近似する場合は
+`--json --max-notices-per-rule 500` を使ってください。R1/R5/R9 は全 notice から
+計算され、切り詰めたルールの実数は `capped_totals` に記録されます。
 
 **終了コード：** `0` 通知なし · `1` 通知ありまたは `PARTIAL` レポート · `2` 致命的エラーまたは config/ファイルエラー。`PARTIAL` レポートでは利用できない入力を安全にスキップし、独立した検査を続行します。JSON には `status: "partial"`、`validation_status: "PARTIAL"`、`partial` の範囲が含まれます。`partial.skipped_checks` は前提条件が利用できず実行されなかった K4/K5/K6 の検査ファミリーと個別ルールを示し、`partial.skipped_stages` は大まかなステージメタデータのために保持されます。`--fail-on*` を指定した場合、`1` は一致する通知があるときのみ返り、その他の指摘は報告されますが実行を失敗させません。JSON モードでは stdout は JSON のみ、エラーは stderr。
 
@@ -456,9 +485,9 @@ gtfs-analyzer rules --class spec --severity critical
 gtfs-analyzer rules --rule STM_004 --json --pretty
 ```
 
-フィールド：`id`、`severity`、`class`、`authority_source`、`base_effort`、`blocks`、`title`。
+フィールド：`id`、`severity`、`class`、`authority_source`、`base_effort`、`blocks`、`title`、`message`、`remediation`。
 `--class` / `--severity` / `--min-severity` / `--rule` フィルタの意味は `validate` と同じです。
-`--lang` はここでも有効です（ルールのタイトル）。
+`--lang` はここでも有効です（ルールのタイトル、メッセージ、修正方法）。
 
 ### 出力言語
 
@@ -697,7 +726,7 @@ GTFS-JP フィードの場合、**JPN** グループのルールは公式の [GT
 | --- | --- | --- |
 | ルールごと（デフォルト） | 500 | すべてのルール |
 | ルールごと（高上限） | 2,000 | `TRP_020`、`OPR_007`、`STP_016`、`STP_017` |
-| 合計（全ルール） | 100,000 | フィード全体 — 超過した場合は検証を停止 |
+| 合計（全ルール） | — | v0.18.0 にはフィード全体で 100,000 件を超えると停止する制限はありません |
 
 高上限リストのルールは、実際のフィードで大量の件数が自然に発生します（例：便ごとに 1 件の運行間隔レコード）。ルールが上限に達した場合、実際の違反件数は修正キューの**合計**列に表示されます。全検出結果タブでそのルールフィルターを選択すると、黄色の警告バナーが表示されます。
 

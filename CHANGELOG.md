@@ -5,9 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.18.0] - 2026-11-03
+
+- Add the missing stop's adjacent stops, arrival/departure times, and trip service context to STM_006 planner cards.
+- Add the affected stop and pickup-type definitions to STM_009 planner cards.
+- Add the affected stop and drop-off-type definitions to STM_010 planner cards.
+- Add neighboring stop times, segment distance in meters, and speed to STM_012 planner cards.
+- Add the direction, sample departure and service days, neighboring stop times, segment distance, and speed to STM_014 planner cards; remove the duplicate route-code column.
 
 ### Added
+
+- **Richer compact/catalog JSON.** R9 items now carry rule severity, class, message and
+  remediation metadata; `validate --compact-json --samples N` can add the first N root-cause
+  records per R9 rule, and `rules --json` exposes the same message/remediation templates.
+
+- **`validate --max-notices-per-rule N`.** Keeps at most N notices per rule in
+  the `--json` output, like the web UI does with 500, and reports the real
+  count of each truncated rule in `capped_totals`. Scores, the publish verdict
+  and the R9 queue are computed before truncation, so they match the full
+  output. On a 13 MB feed with 840,578 notices the JSON drops from 848 MB to
+  0.8 MB with N=20. Peak memory is unchanged.
 
 - **`gtfs-sdk` validates large feeds.** The package now ships a wasm64 engine
   next to the wasm32 one and picks it where the runtime supports Memory64
@@ -19,8 +36,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2.0 MB packed. When a feed runs the wasm32 engine out of memory, the
   `ResourceLimit` error's `detail` now says so and points to Node.js 24+
   instead of only `unreachable`.
+- **"For Planners" tab (beta) in the web UI.** Findings are grouped by the
+  part of the timetable a planner edits (trip times, stops, service days,
+  shapes, routes, fares, agency) and told in plain language in tr, en, fr
+  and ja: what happened, where, and what to do. Each topic has a map with
+  route-coloured shapes and direction arrows, an affected-records table
+  (10 rows first, up to 500), and agency, route, stop, shape and service
+  filters. The base map uses OpenStreetMap tiles.
+- **More structured evidence on notices.** `STM_012` details add
+  `stop_sequence_a/b`, `distance_km`, `scheduled_gap_seconds`,
+  `distance_method`, and `speed_kmh` or `speed_lower_bound_kmh`
+  (`intermediate_stop_count` when untimed stops were skipped). `STM_015` and
+  `STM_016` add `stop_id`, `departure`, `stop_count`, `timed_stops` and the
+  nearest timed neighbour (`next_*` / `prev_*`). `STM_008` adds the stop
+  before the departure row and after the arrival row with their times.
+  `STM_028` and `STM_029` add the first and last stop with their times
+  (`first_stop_id`, `first_departure`, `last_stop_id`, `last_arrival`),
+  `STM_045` the `stop_id` of the late departure, and `STM_021` the
+  `stop_a`/`stop_b` pair its rule card already described. `STM_003` and
+  `STM_004` (unparseable arrival/departure time) add the row's `stop_id` and
+  times and the previous and next rows of the trip (`prev_*`, `next_*`;
+  unparseable times keep their raw text). The planner view folds `STM_004`
+  rows whose arrival is also unparseable into the `STM_003` topic. `STM_007`
+  rows add the stop and the neighbouring rows' times; its feed-level summary
+  (above 50 rows) adds `affected_trips`, up to 20 example rows from different
+  trips (`example_<i>_*`), the most common departure-before-arrival gap
+  (`typical_gap_seconds`, `typical_gap_rows`) and the five most affected stops
+  (`top_stops`), and no longer repeats a trip in `example_trips`. Existing
+  keys are unchanged.
+- **`name_index` carries four more lookups:** `route_colors` (valid hex
+  `route_color`/`route_text_color` only), `route_long_names`, `stop_codes`
+  and `service_days` (weekday summary per `service_id`, or date-only
+  services). Empty maps are omitted from JSON.
 
 ### Fixed
+
+- **R9 `score_delta` now uses the R5 scoring model.** It was computed with a
+  per-notice linear penalty while R5 caps each rule's penalty at 2×, so the
+  reported gain was not what R5 would actually gain. It is now R5 recomputed
+  without the item's closure set. Values change (on mdb-3401 `STM_003`
+  1.2 → 3.1, `STM_049` 0.0 → 1.6); R5 scores are unchanged.
+- **Web R9 gains were inflated on capped rules.** The browser multiplied
+  `score_delta` and `pub_score_delta` by real/shown notice counts
+  (`STM_003`: 827.6 / 7153.1 on a 0–100 scale). The scaling is removed; both
+  deltas saturate with the R5 model, so web and CLI report the same values.
+
+- **`validate --rule/--severity/--class` left `agency_breakdown` pointing at
+  the wrong notices.** `notice_indices` are positions in `notices` and were not
+  renumbered after filtering, so they could point past the end of the array.
+
+- **The browser and `gtfs-sdk` now see `locations.geojson` areas.** The WASM path did not
+  pass GeoJSON location ids and geometries to the cross-reference stage, unlike the CLI.
+  In the browser and the SDK, `XFL_025` reported every Flex `location_id` as undefined,
+  `XFL_031` could not fire and `STM_060` never ran. They now match the CLI.
+
+- **`STM_001` gives planners a usable trip description.** Missing-trip notices now
+  include the first and last stops, their departure/arrival times, and the stop count;
+  the planner card and affected-record table use that evidence, and the trip's stop
+  sequence is shown on the map instead of exposing feed-file terminology.
+- **`STM_002` identifies the trip that uses a missing stop.** Notices now include
+  route, service name/code and time or flexible pickup-window context so planners can locate
+  the right record and distinguish a physical stop from a service area. When the
+  missing stop is a `locations.geojson` area, the notice says so (`geojson_location`).
+  The planner-only context can read feeds using the alternate `dropoff` window-header
+  spelling; rule behavior does not change.
 
 - **The browser and `gtfs-sdk` no longer drop findings past one million.** The
   WASM path stopped collecting notices at a global budget of 1,000,000 and
@@ -38,6 +117,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Memory representation of notices changed for native peak-memory reduction.**
+  `Notice.title` and `Notice.remediation` are now `Arc<str>`, and the
+  `NoticeDetails::iter()` signature changed with the compact internal detail
+  representation. The serialized JSON output and TypeScript types are unchanged.
+- **Config and partial-root error text is now English.** Config validation errors and
+  `PartialReport.root_structural_errors` keep their existing fields and `String`/`Vec<String>`
+  shapes; only the user-facing text changed.
+- **Browser error messages follow the selected language.** Running out of WASM memory,
+  the 15-minute validation timeout, a crashed background worker, and an unsupported Golden
+  JSON file on the comparison page used to show fixed Turkish text. They now come from the
+  tr, en, ja and fr locales. Running out of memory is reported as `ResourceLimit` instead of
+  `ZipUnreadable`.
 - **`STM_017` skips trips whose `shape_id` is not defined in `shapes.txt`.** There
   is no shape to place the stops on; `TRP_004` (undefined `shape_id`) and
   `ARC_020` (missing `shapes.txt`) already report the problem. This came in as a
@@ -62,6 +153,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **Native peak memory decreased on the full corpus.** On paired same-SHA feeds,
+  median peak RSS decreased 6.9%, p95 decreased 20.5%, and the maximum decreased
+  8.1%; median runtime was unchanged. The JSON contract remained byte-for-byte
+  identical on the measured local feeds.
 - Large fare and shape files: `fare_rules.txt` no longer builds a per-row map,
   `SHP_019` finds shape lines in one pass and the fare network stops copying
   existing keys. On mdb-992 the browser engine went from 48 s to 18 s (wasm32)
@@ -2718,7 +2813,7 @@ filters (R2).
   audit (`cargo audit` blocking; `npm audit` reported, non-blocking).
 - GitHub Pages deploy builds from source to guarantee the live site matches `HEAD`.
 
-[Unreleased]: https://github.com/ttezer/gtfs-analyzer/compare/v0.17.0...HEAD
+[0.18.0]: https://github.com/ttezer/gtfs-analyzer/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/ttezer/gtfs-analyzer/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ttezer/gtfs-analyzer/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ttezer/gtfs-analyzer/compare/v0.14.0...v0.15.0

@@ -51,7 +51,7 @@ struct Dictionary {
     messages: HashMap<String, String>,
     remediations: HashMap<String, String>,
     titles: HashMap<String, String>,
-    /// `{FatalCode}.{variant}` → şablon; parametreler `FatalError::params`'tan dolar.
+    /// `{FatalCode}.{variant}` → template; parameters are filled from `FatalError::params`.
     #[serde(default)]
     fatal_messages: HashMap<String, String>,
 }
@@ -104,7 +104,7 @@ impl Translator {
     /// from the dictionaries keep the pipeline's Turkish text.
     pub fn translate(&self, notice: &mut Notice) {
         if let Some(title) = self.lookup(|d| &d.titles, &notice.rule_id) {
-            notice.title = title.to_string();
+            notice.title = crate::intern_notice_text(title);
         }
         let profile_variant = notice
             .details
@@ -143,7 +143,7 @@ impl Translator {
             })
             .or_else(|| self.lookup(|d| &d.remediations, &notice.rule_id))
         {
-            notice.remediation = remediation.to_string();
+            notice.remediation = crate::intern_notice_text(remediation);
         }
     }
 
@@ -175,6 +175,17 @@ impl Translator {
     /// Registry title for the `rules` subcommand, which has no notice context.
     pub fn rule_title<'a>(&'a self, rule_id: &str, fallback: &'a str) -> &'a str {
         self.lookup(|d| &d.titles, rule_id).unwrap_or(fallback)
+    }
+
+    /// Rule-level message template for registry/catalog consumers that do not have
+    /// a concrete notice from which to fill placeholders.
+    pub fn rule_message(&self, rule_id: &str) -> Option<&str> {
+        self.lookup(|d| &d.messages, rule_id)
+    }
+
+    /// Rule-level remediation text for registry/catalog consumers.
+    pub fn rule_remediation(&self, rule_id: &str) -> Option<&str> {
+        self.lookup(|d| &d.remediations, rule_id)
     }
 }
 
@@ -242,14 +253,14 @@ mod tests {
             .collect()
     }
 
-    /// Her fatal şablonu üç dilde de var ve AYNI yer tutucuları kullanıyor; biri eksik
-    /// kalırsa o dilde parametre sessizce boş basılırdı.
+    /// Every fatal template exists in all three languages and uses the SAME placeholders;
+    /// if one were missing, the parameter would silently render empty in that language.
     #[test]
     fn fatal_templates_match_across_locales() {
         let en = Dictionary::parse(EN_JSON, "en").unwrap();
         assert!(
             !en.fatal_messages.is_empty(),
-            "İngilizce fatal şablonları boş"
+            "English fatal templates are empty"
         );
         for (lang, raw) in [("fr", FR_JSON), ("ja", JA_JSON)] {
             let other = Dictionary::parse(raw, lang).unwrap();
@@ -259,13 +270,13 @@ mod tests {
             other_keys.sort();
             assert_eq!(
                 en_keys, other_keys,
-                "{lang}: fatal şablon anahtarları farklı"
+                "{lang}: fatal template keys differ"
             );
             for (key, template) in &en.fatal_messages {
                 assert_eq!(
                     placeholders(template),
                     placeholders(&other.fatal_messages[key]),
-                    "{lang}: {key} yer tutucuları farklı"
+                    "{lang}: {key} placeholders differ"
                 );
             }
         }
@@ -306,9 +317,9 @@ mod tests {
             details: None,
             whitespace_derived: false,
             whitespace_candidate: false,
-            title: "departure_time geçersiz format".to_string(),
+            title: "departure_time geçersiz format".to_string().into(),
             message: "Türkçe mesaj".to_string(),
-            remediation: "Türkçe çözüm".to_string(),
+            remediation: "Türkçe çözüm".to_string().into(),
             blocks: Vec::new(),
             base_effort: 1,
             service_id: None,
@@ -345,8 +356,8 @@ mod tests {
             "expected English text, got: {}",
             n.message
         );
-        assert_ne!(n.title, "departure_time geçersiz format");
-        assert_ne!(n.remediation, "Türkçe çözüm");
+        assert_ne!(n.title.as_ref(), "departure_time geçersiz format");
+        assert_ne!(n.remediation.as_ref(), "Türkçe çözüm");
     }
 
     #[test]
@@ -357,7 +368,7 @@ mod tests {
         translator.translate(&mut n);
 
         assert_eq!(n.message, "Türkçe mesaj");
-        assert_eq!(n.title, "departure_time geçersiz format");
+        assert_eq!(n.title.as_ref(), "departure_time geçersiz format");
     }
 
     #[test]
@@ -395,7 +406,7 @@ mod tests {
         n.details = Some(std::collections::BTreeMap::from([(
             "entity_id".to_string(),
             "override".to_string(),
-        )]));
+        )]).into());
         assert_eq!(fill("{entity_id}", &n), "override");
     }
 
@@ -407,7 +418,7 @@ mod tests {
         n.details = Some(std::collections::BTreeMap::from([(
             "jp_profile".to_string(),
             "V4".to_string(),
-        )]));
+        )]).into());
         translator.translate(&mut n);
 
         assert!(n.message.contains("GTFS-JP v4"), "{}", n.message);
@@ -424,7 +435,7 @@ mod tests {
             n.details = Some(std::collections::BTreeMap::from([(
                 "message_variant".to_string(),
                 "missing_departure".to_string(),
-            )]));
+            )]).into());
             translator.translate(&mut n);
 
             let key = "STM_047.missing_departure";
@@ -436,7 +447,7 @@ mod tests {
                     .replace("{entity_id}", "T1",)
             );
             assert_eq!(
-                n.remediation,
+                n.remediation.as_ref(),
                 translator.lookup(|d| &d.remediations, key).unwrap()
             );
         }
@@ -451,14 +462,14 @@ mod tests {
             n.details = Some(std::collections::BTreeMap::from([
                 ("jp_profile".into(), "V4".into()),
                 ("message_variant".into(), "missing_review".into()),
-            ]));
+            ]).into());
             translator.translate(&mut n);
             let specific = translator
                 .lookup(|d| &d.messages, "JPN_006.v4.missing_review")
                 .unwrap();
             assert_eq!(n.message, specific);
             assert_eq!(
-                n.remediation,
+                n.remediation.as_ref(),
                 translator
                     .lookup(|d| &d.remediations, "JPN_006.v4.missing_review")
                     .unwrap()
@@ -475,7 +486,7 @@ mod tests {
                     "example_record_ids".into(),
                     "trip_id=T1,stop_sequence=2".into(),
                 ),
-            ]));
+            ]).into());
             translator.translate(&mut n);
             for part in [
                 "18426",

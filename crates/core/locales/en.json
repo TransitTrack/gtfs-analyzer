@@ -224,7 +224,7 @@
     "LOC_003": "Feature {observed_value} in locations.geojson is missing the required 'id' property.",
     "LOC_004": "Feature {observed_value} in locations.geojson has an unclosed Polygon ring.",
     "LOC_005": "locations.geojson FeatureCollection has no features.",
-    "LOC_006": "Feature {observed_value} in locations.geojson covers a very large area (~{observed_value} km²).",
+    "LOC_006": "Feature {line} in locations.geojson covers a very large area (~{observed_value}).",
     "LOC_007": "locations.geojson contains duplicate feature 'id' values: '{observed_value}'.",
     "LOC_010": "A feature in '{entity_id}' has no geometry 'coordinates' array.",
     "LOC_009": "A feature in '{entity_id}' has no 'properties' object.",
@@ -1916,6 +1916,11 @@
     "ResourceLimit.config_size": "The config JSON exceeds the 4 MiB safety limit.",
     "InvalidInput.today": "Invalid 'today' value: {today} (expected YYYYMMDD, e.g. 20260716)",
     "InvalidInput.config_parse": "Config parse error: {detail}",
+    "ResourceLimit.browser_memory": "The feed is too large for the browser: WASM ran out of memory. Try a smaller feed. ({detail})",
+    "ResourceLimit.timeout": "Validation did not finish within {minutes} minutes. Try a smaller feed.",
+    "ResourceLimit.timeout_at_stage": "Validation did not finish within {minutes} minutes. Try a smaller feed. (last completed stage: {stage})",
+    "ResourceLimit.worker_crash": "The background validation worker stopped unexpectedly. {detail}",
+    "ResourceLimit.worker_crash_at_stage": "The background validation worker stopped unexpectedly. {detail} (last completed stage: {stage})",
     "InvalidInput.disabled_rule_unknown": "Rule '{rule_id}' in disabled_rule_ids is not a known rule id.",
     "InvalidInput.disabled_rule_spec": "Rule '{rule_id}' is a Spec rule and cannot be disabled: the publishability verdict depends on Spec rules."
   }

@@ -14,8 +14,8 @@ geçersizdir** — yani kalıntı değil, hataydı.
 Kaynak: IANA Language Subtag Registry (RFC 5646 §3). `Type: grandfathered` kayıtları.
 
 Çalıştır:
-    python3 spec-audit/gen_bcp47_grandfathered.py            # ağdan üret
-    python3 spec-audit/gen_bcp47_grandfathered.py --check    # denetle (1 = drift, 2 = bakılamadı)
+    python3 spec-audit/gen_bcp47_grandfathered.py            # generate from the network
+    python3 spec-audit/gen_bcp47_grandfathered.py --check    # check (1 = drift, 2 = unavailable)
     python3 spec-audit/gen_bcp47_grandfathered.py lsr.txt
 """
 import hashlib
@@ -34,7 +34,7 @@ def fetch(argv: list[str]) -> bytes:
         return pathlib.Path(local[0]).read_bytes()
     p = subprocess.run(["curl", "-sSL", "--max-time", "90", SRC], capture_output=True)
     if p.returncode != 0:
-        raise RuntimeError(f"curl hatası: {p.stderr.decode()[:120]}")
+        raise RuntimeError(f"curl failed: {p.stderr.decode()[:120]}")
     return p.stdout
 
 
@@ -47,33 +47,33 @@ def parse(raw: bytes) -> tuple[str, list[str]]:
         if re.search(r"^Type:\s*grandfathered\s*$", record, re.M):
             t = re.search(r"^Tag:\s*(\S+)", record, re.M)
             if t:
-                # ⚠️ Kayıt defteri etiketleri karışık yazımla tutar (`en-GB-oed`,
-                # `zh-min-nan`); karşılaştırma RFC 5646 §2.1.1'e göre BÜYÜK/küçük harfe
-                # DUYARSIZDIR, o yüzden tablo küçük harfe normalize edilir.
+                # ⚠️ The registry stores tags with mixed casing (`en-GB-oed`, `zh-min-nan`);
+                # comparison is case-INSENSITIVE under RFC 5646 §2.1.1, so the table is
+                # normalized to lowercase.
                 tags.append(t.group(1).lower())
     if not tags:
-        raise RuntimeError("kayıt defterinde grandfathered kaydı bulunamadı")
+        raise RuntimeError("no grandfathered record found in the registry")
     return file_date, sorted(set(tags))
 
 
 def render(file_date: str, digest: str, tags: list[str]) -> str:
     body = "\n".join(f'    "{t}",' for t in tags)
-    return f'''//! ÜRETİLMİŞ DOSYA — elle düzenlemeyin (issue #82).
+    return f'''//! GENERATED FILE — do not edit by hand (issue #82).
 //!
-//! Kaynak    : {SRC}
-//! File-Date : {file_date}   (kayıt defterinin kendi tarihi)
+//! Source    : {SRC}
+//! File-Date : {file_date}   (the registry's own date)
 //! SHA-256   : {digest}
-//! Üretim    : `python3 spec-audit/gen_bcp47_grandfathered.py`
+//! Generation: `python3 spec-audit/gen_bcp47_grandfathered.py`
 //! Drift     : `python3 spec-audit/gen_bcp47_grandfathered.py --check`
 //!
-//! RFC 5646 `grandfathered` etiketleri ({len(tags)} adet). Bunlar normal `langtag`
-//! üretimine uymayan ama GEÇERLİ olan sabit kayıtlardır.
+//! RFC 5646 `grandfathered` tags ({len(tags)} entries). These are fixed records that do not follow
+//! normal `langtag` production but are VALID.
 //!
-//! ⚠️ `i-` bir AD ALANI DEĞİLDİR: yalnız bu listedeki `i-*` etiketleri geçerlidir.
-//! Karşılaştırma küçük harfe normalize edilerek yapılır (RFC 5646 §2.1.1: etiketler
-//! büyük/küçük harfe duyarsızdır).
+//! ⚠️ `i-` is NOT a name space: only the `i-*` tags in this list are valid.
+//! Comparison is performed after normalizing to lowercase (RFC 5646 §2.1.1: tags are
+//! case-insensitive).
 
-/// Alfabetik SIRALI, küçük harf — `binary_search` bunu varsayar.
+/// Alphabetically SORTED, lowercase — `binary_search` relies on this.
 pub(crate) const GRANDFATHERED: &[&str] = &[
 {body}
 ];
@@ -86,22 +86,22 @@ def main() -> int:
         raw = fetch(sys.argv)
         file_date, tags = parse(raw)
     except Exception as e:
-        print(f"ÖLÇÜLEMEDİ: {type(e).__name__}: {e}", file=sys.stderr)
-        print("⚠️ Bu 'drift yok' DEĞİLDİR — kaynağa bakılamadı.", file=sys.stderr)
+        print(f"NOT MEASURED: {type(e).__name__}: {e}", file=sys.stderr)
+        print("⚠️ This does NOT mean 'no drift' — the source could not be read.", file=sys.stderr)
         return 2
     text = render(file_date, hashlib.sha256(raw).hexdigest(), tags)
     if check:
         cur = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
         cur_tags = set(re.findall(r'^    "([a-z0-9-]+)",$', cur, re.M))
         if cur_tags == set(tags):
-            print(f"bcp47 grandfathered OK — {len(tags)} etiket (kayıt defteri {file_date})")
+            print(f"bcp47 grandfathered OK — {len(tags)} tags (registry {file_date})")
             return 0
         added, gone = sorted(set(tags) - cur_tags), sorted(cur_tags - set(tags))
-        print(f"🔴 GRANDFATHERED DRIFT — eklenen {added[:6]} · kaybolan {gone[:6]}")
+        print(f"🔴 GRANDFATHERED DRIFT — added {added[:6]} · missing {gone[:6]}")
         print("  → python3 spec-audit/gen_bcp47_grandfathered.py")
         return 1
     OUT.write_text(text, encoding="utf-8")
-    print(f"yazıldı: {OUT.name} ({len(tags)} etiket · kayıt defteri {file_date})")
+    print(f"wrote: {OUT.name} ({len(tags)} tags · registry {file_date})")
     return 0
 
 

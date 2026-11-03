@@ -1,4 +1,4 @@
-/* WP-18a — Harita popup (durak / koordinat hataları) */
+/* WP-18a — Map popup (stop / coordinate errors) */
 
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,9 +8,10 @@ export interface MapPin {
   lat: number;
   lon: number;
   label: string;
-  primary: boolean; // mavi = birincil, kırmızı = referans
-  small?: boolean;  // küçük marker (çok sayıda pin olduğunda)
-  color?: string;   // özel renk (verilirse primary mavi/kırmızı yerine bu kullanılır)
+  primary: boolean; // blue = primary, red = reference
+  small?: boolean;  // small marker (when there are many pins)
+  color?: string;   // custom color (replaces primary blue/red when provided)
+  stroke?: string;  // inline map: ring color (white by default)
 }
 
 let overlay: HTMLElement | null = null;
@@ -24,16 +25,119 @@ const MAX_MAP_ARROWS = 2_000;
 
 export interface MapOptions {
   pins: MapPin[];
-  polyline?: [number, number][];  // shape çizgisi (ana renk)
-  polylineColor?: string;         // ana çizgi rengi (varsayılan turuncu; vurgulu segment varken siyah)
-  extraPolylines?: Array<{        // ek renkli segmentler (bozuk segment vurgusu gibi)
+  polyline?: [number, number][];  // shape line (base color)
+  polylineColor?: string;         // base line color (orange by default; black when a segment is highlighted)
+  extraPolylines?: Array<{        // extra colored segments (such as a faulty-segment highlight)
     coords: [number, number][];
     color: string;
     weight?: number;
-    zoomTo?: boolean;             // bu segmente zoom yap
+    zoomTo?: boolean;             // zoom to this segment
+    arrows?: boolean;             // inline map: route-direction arrows
   }>;
   legendItems?: Array<{ color: string; label: string }>;
-  showArrows?: boolean;           // polyline üzerine yön okları (her ~250m)
+  showArrows?: boolean;           // direction arrows over the polyline (every ~250 m)
+  focus?: [number, number];       // inline map: focus this point (such as the first/last stop)
+}
+
+/**
+ * Map base layer: the standard OpenStreetMap layer with attribution. Only tiles for the
+ * visible region are requested; feed data is sent to no server.
+ */
+function addBaseLayer(map: L.Map): void {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    // The page runs with COEP require-corp (WASM threads). OSM tiles do not send a CORP
+    // header but allow CORS; if a tile is not fetched with a CORS request, the browser blocks it.
+    crossOrigin: 'anonymous',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+  }).addTo(map);
+}
+
+/**
+ * Mounts the same Leaflet drawing inside a card.
+ * It shares the MapOptions contract with the modal; the caller must run the returned
+ * cleanup function when closing.
+ */
+export function mountInlineMap(container: HTMLElement, opts: MapOptions): () => void {
+  container.innerHTML = '';
+  const map = L.map(container, { zoomControl: true, attributionControl: true, preferCanvas: true });
+  addBaseLayer(map);
+  const bounds: [number, number][] = [];
+  const polyline = capPoints(opts.polyline, MAX_MAP_POLYLINE_POINTS);
+
+  if (polyline && polyline.length > 1) {
+    L.polyline(polyline, {
+      color: opts.polylineColor ?? '#64748b',
+      weight: opts.polylineColor ? 5 : 3,
+      opacity: 0.95,
+    }).addTo(map);
+    bounds.push(...polyline);
+  }
+
+  let zoomTarget: [number, number][] | null = null;
+  for (const seg of opts.extraPolylines?.slice(0, MAX_MAP_EXTRA_POLYLINES) ?? []) {
+    const coords = capPoints(seg.coords, MAX_MAP_EXTRA_POINTS);
+    if (!coords || coords.length < 2) continue;
+    L.polyline(coords, { color: seg.color, weight: seg.weight ?? 4, opacity: 0.95 }).addTo(map);
+    bounds.push(...coords);
+    if (seg.zoomTo) zoomTarget = coords;
+    if (seg.arrows) {
+      // Direction arrows: at most ~20 arrows along the line, in the route color.
+      const total = coords.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - coords[i][0], p[1] - coords[i][1]) * 111_000, 0);
+      for (const arrow of arrowsAlongPolyline(coords, Math.max(150, total / 20)).slice(0, 40)) {
+        L.marker([arrow.lat, arrow.lon], {
+          icon: L.divIcon({
+            html: `<svg width="14" height="14" viewBox="-7 -7 14 14" style="transform:rotate(${arrow.angle}deg);display:block"><polygon points="0,-6 5,4 -5,4" fill="${seg.color}" stroke="#fff" stroke-width="1.5"/></svg>`,
+            className: '', iconSize: [14, 14], iconAnchor: [7, 7],
+          }),
+          interactive: false,
+        }).addTo(map);
+      }
+    }
+  }
+
+  let primaryLabels = 0;
+  const ordered = [...opts.pins.slice(0, MAX_MAP_PINS)].sort((a, b) => Number(a.primary) - Number(b.primary));
+  for (const pin of ordered) {
+    // On the card map, primary marks the subject's location (red); the others are context (gray).
+    const color = pin.color ?? (pin.primary ? '#dc2626' : '#64748b');
+    L.circleMarker([pin.lat, pin.lon], {
+      radius: pin.small ? 4 : 9,
+      fillColor: color,
+      color: pin.stroke ?? '#fff',
+      weight: 2,
+      fillOpacity: 0.9,
+    }).addTo(map).bindPopup(pin.label, { maxWidth: 260 });
+    // The marked stop gets a permanent label: the route color may also be red, so the point alone is ambiguous.
+    if (pin.primary && primaryLabels++ < 5) {
+      L.tooltip({ permanent: true, direction: 'top', offset: [0, -8], className: 'planner-map-label' })
+        .setLatLng([pin.lat, pin.lon]).setContent(pin.label).addTo(map);
+    }
+    bounds.push([pin.lat, pin.lon]);
+  }
+
+  const target = zoomTarget;
+  const applyView = () => {
+    if (opts.focus) map.setView(opts.focus, 15);
+    else if (target && target.length > 1) map.fitBounds(target, { padding: [24, 24], maxZoom: 16 });
+    else if (bounds.length > 1) map.fitBounds(bounds, { padding: [24, 24] });
+    else if (bounds.length === 1) map.setView(bounds[0], 14);
+    else map.setView([39, 35], 5);
+  };
+  applyView();
+
+  // The box may not have its final size while the card opens; Leaflet calculates tiles and
+  // the view using the current size (one tile, labels trapped in a corner). Measure again once it settles.
+  let sized = false;
+  const observer = typeof ResizeObserver !== 'undefined'
+    ? new ResizeObserver(() => {
+      map.invalidateSize();
+      if (!sized && container.clientWidth > 0 && container.clientHeight > 0) { sized = true; applyView(); }
+    })
+    : null;
+  observer?.observe(container);
+  setTimeout(() => { map.invalidateSize(); applyView(); }, 0);
+  return () => { observer?.disconnect(); map.remove(); };
 }
 
 export function openMapModal(title: string, opts: MapOptions): void {
@@ -45,6 +149,7 @@ export function openMapModal(title: string, opts: MapOptions): void {
 
   if (!leafletMap) {
     leafletMap = L.map(mapDiv);
+    addBaseLayer(leafletMap);
   } else {
     leafletMap.eachLayer((layer: L.Layer) => {
       if (!(layer instanceof L.TileLayer)) leafletMap!.removeLayer(layer);
@@ -54,10 +159,10 @@ export function openMapModal(title: string, opts: MapOptions): void {
   const bounds: [number, number][] = [];
   const polyline = capPoints(opts.polyline, MAX_MAP_POLYLINE_POINTS);
 
-  // Shape polyline (arka planda, pinlerden önce)
+  // Shape polyline (in the background, before pins)
   if (polyline && polyline.length > 1) {
-    // Vurgulu (siyah) taban çizgi biraz daha kalın ve tam opak: gri denemesinde çizgi
-    // harita altlığında kaybolmuştu.
+    // The highlighted (black) base line is slightly thicker and fully opaque: in the gray
+    // version it disappeared into the map base.
     const isBase = opts.polylineColor !== undefined;
     L.polyline(polyline, {
       color: opts.polylineColor ?? '#f59e0b',
@@ -66,7 +171,7 @@ export function openMapModal(title: string, opts: MapOptions): void {
     }).addTo(leafletMap);
     for (const pt of polyline) bounds.push(pt);
 
-    // Yön okları — her ~250m'de bir küçük üçgen
+    // Direction arrows — a small triangle every ~250 m
     if (opts.showArrows) {
       for (const arrow of arrowsAlongPolyline(polyline, 250).slice(0, MAX_MAP_ARROWS)) {
         L.marker([arrow.lat, arrow.lon], {
@@ -84,7 +189,7 @@ export function openMapModal(title: string, opts: MapOptions): void {
     }
   }
 
-  // Ek renkli segmentler (bozuk hız segmentleri vb.)
+  // Extra colored segments (faulty speed segments, etc.)
   let zoomTarget: [number, number][] | null = null;
   if (opts.extraPolylines) {
     for (const seg of opts.extraPolylines.slice(0, MAX_MAP_EXTRA_POLYLINES)) {
@@ -97,7 +202,7 @@ export function openMapModal(title: string, opts: MapOptions): void {
     }
   }
 
-  // Pinler
+  // Pins
   for (const pin of opts.pins.slice(0, MAX_MAP_PINS)) {
     const color = pin.color ?? (pin.primary ? '#2563eb' : '#dc2626');
     const radius = pin.small ? 5 : 9;
@@ -115,10 +220,10 @@ export function openMapModal(title: string, opts: MapOptions): void {
   }
 
   if (zoomTarget && zoomTarget.length > 1) {
-    // Bozuk segmente zoom yap
+    // Zoom to the faulty segment.
     leafletMap.fitBounds(zoomTarget, { padding: [60, 60], maxZoom: 16 });
   } else if (bounds.length === 0) {
-    // Hiçbir şey yok — Türkiye merkezi
+    // Nothing to show — center on Turkey.
     leafletMap.setView([39.0, 35.0], 6);
   } else if (bounds.length === 1) {
     leafletMap.setView(bounds[0], 16);
@@ -137,7 +242,7 @@ export function openMapModal(title: string, opts: MapOptions): void {
     legend.style.display = 'none';
   }
 
-  // Leaflet görünür hale geldikten sonra boyutu yeniden hesapla
+  // Recalculate the size after Leaflet becomes visible.
   setTimeout(() => leafletMap!.invalidateSize(), 50);
 }
 
@@ -174,7 +279,7 @@ function arrowsAlongPolyline(
 
   const arrows: Array<{ lat: number; lon: number; angle: number }> = [];
   let cum = 0;
-  let next = intervalM * 0.5; // ilk ok yarım aralıkta başlasın
+  let next = intervalM * 0.5; // start the first arrow halfway through the interval
   for (let i = 0; i < pts.length - 1; i++) {
     const [la1, lo1] = pts[i], [la2, lo2] = pts[i + 1];
     const seg = haversineM(la1, lo1, la2, lo2);
@@ -205,8 +310,8 @@ function ensureOverlay(): void {
   document.body.appendChild(overlay);
 
   overlay.querySelector('.mm-close')!.addEventListener('click', closeMapModal);
-  // Overlay dışına tıklayınca kapat
+  // Close when clicking outside the overlay.
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMapModal(); });
-  // Escape tuşu
+  // Escape key.
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMapModal(); });
 }

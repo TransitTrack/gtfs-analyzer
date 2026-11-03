@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""ISO 4217 tablosunu RESMÎ kaynaktan üret (issue #82).
+"""Generate the ISO 4217 table from the OFFICIAL source (issue #82).
 
-🔴 Neden üretiliyor, elle yazılmıyor: elle gömülü liste iki şeyi birden kaybeder —
-NEREDEN geldiğini ve NE ZAMAN geçerli olduğunu. 2026-08-07'de tam bu oldu: kodda "üç büyük
-ASCII harf" denetimi vardı, sonra elle bir aktif-kod listesi eklendi, ama `CLF` ve `UYW`
-için minor unit **4** olduğu halde tablo "0/2/3 dışında değer yok" varsayıyordu ve ikisine
-de 2 veriyordu.
+🔴 Why generate it instead of writing it by hand: a hard-coded list loses both WHERE it came
+from and WHEN it is valid. That happened on 2026-08-07: the code checked for "three uppercase
+ASCII letters", then an active-code list was added by hand, but although `CLF` and `UYW`
+have minor unit **4**, the table assumed there were no values other than "0/2/3" and assigned
+2 to both.
 
-Kaynak: SIX (ISO 4217 kayıt otoritesi) `list-one.xml` — aktif kodlar (Table A.1).
-Üretilen dosya kaynağın `Pblshd` tarihini ve SHA-256'sını taşır; drift denetimi bunlara
-bakar.
+Source: SIX (the ISO 4217 registration authority) `list-one.xml` — active codes (Table A.1).
+The generated file carries the source's `Pblshd` date and SHA-256; the drift check uses them.
 
-Çalıştır:
-    python3 spec-audit/gen_iso4217.py                 # ağdan indirir, tabloyu yazar
-    python3 spec-audit/gen_iso4217.py --check         # SADECE denetler (exit 1 = drift)
-    python3 spec-audit/gen_iso4217.py list-one.xml    # yerel kopyadan
+Run:
+    python3 spec-audit/gen_iso4217.py                 # download from the network and write the table
+    python3 spec-audit/gen_iso4217.py --check         # CHECK ONLY (exit 1 = drift)
+    python3 spec-audit/gen_iso4217.py list-one.xml    # use a local copy
 
-⚠️ `--check` AĞ İSTER. CI'da koşacaksa "ölçülemedi" ile "drift yok" ayrımı korunmalı;
-`spec_drift.py`'nin dersi burada da geçerli.
+⚠️ `--check` NEEDS NETWORK. If it runs in CI, preserve the distinction between "could
+not measure" and "no drift"; the lesson from `spec_drift.py` applies here too.
 """
 import hashlib
 import pathlib
@@ -36,7 +35,7 @@ def fetch(argv: list[str]) -> bytes:
         return pathlib.Path(local[0]).read_bytes()
     p = subprocess.run(["curl", "-sSL", "--max-time", "90", SRC], capture_output=True)
     if p.returncode != 0:
-        raise RuntimeError(f"curl hatası: {p.stderr.decode()[:120]}")
+        raise RuntimeError(f"curl failed: {p.stderr.decode()[:120]}")
     return p.stdout
 
 
@@ -47,33 +46,33 @@ def parse(raw: bytes) -> tuple[str, list[tuple[str, int]]]:
     for entry in root.iter("CcyNtry"):
         code = (entry.findtext("Ccy") or "").strip()
         if not code:
-            continue  # para birimi olmayan ülkeler (ör. ANTARCTICA) — kod taşımaz
+            continue  # countries without a currency (e.g. ANTARCTICA) — carry no code
         minor = (entry.findtext("CcyMnrUnts") or "").strip()
-        # `N.A.` → fon/kıymetli maden gibi ondalığı tanımsız kodlar.
+        # `N.A.` → codes with undefined decimal places, such as funds and precious metals.
         units = int(minor) if minor.isdigit() else 255
         if code in seen and seen[code] != units:
-            raise RuntimeError(f"{code}: aynı kod için iki farklı minor unit ({seen[code]} / {units})")
+            raise RuntimeError(f"{code}: two different minor units for the same code ({seen[code]} / {units})")
         seen[code] = units
     return published, sorted(seen.items())
 
 
 def render(published: str, digest: str, rows: list[tuple[str, int]]) -> str:
     body = "\n".join(f'    ("{c}", {u}),' for c, u in rows)
-    return f'''//! ÜRETİLMİŞ DOSYA — elle düzenlemeyin (issue #82).
+    return f'''//! GENERATED FILE — do not edit by hand (issue #82).
 //!
-//! Kaynak : {SRC}
-//! Yayın   : {published}   (kaynağın kendi `Pblshd` alanı)
+//! Source : {SRC}
+//! Published: {published}   (the source's own `Pblshd` field)
 //! SHA-256 : {digest}
-//! Üretim  : `python3 spec-audit/gen_iso4217.py`
+//! Generation: `python3 spec-audit/gen_iso4217.py`
 //! Drift   : `python3 spec-audit/gen_iso4217.py --check`
 //!
-//! Tablo ISO 4217'nin **aktif** kodlarıdır (Table A.1). Tarihe karışmış kodlar burada
-//! YOKTUR: bir feed bugünkü bir para birimi bildirmelidir.
+//! The table contains ISO 4217 **active** codes (Table A.1). Historical codes are NOT
+//! HERE: a feed must report a currency that exists today.
 //!
-//! ⚠️ `255` = ondalık basamak TANIMSIZ (kaynakta `N.A.`) — fonlar ve kıymetli madenler
-//! (`XAU`, `XDR`, …). Bunlar geçerli KODDUR ama tutar ondalığı denetlenemez.
+//! ⚠️ `255` = decimal places UNDEFINED (the source says `N.A.`) — funds and precious metals
+//! (`XAU`, `XDR`, …). These are valid CODES, but amount decimals cannot be checked.
 
-/// (kod, minor unit) — koda göre SIRALI; `binary_search_by_key` bunu varsayar.
+/// (code, minor unit) — SORTED by code; `binary_search_by_key` relies on this.
 pub(crate) const ISO4217: &[(&str, u8)] = &[
 {body}
 ];
@@ -86,8 +85,8 @@ def main() -> int:
         raw = fetch(sys.argv)
         published, rows = parse(raw)
     except Exception as e:
-        print(f"ÖLÇÜLEMEDİ: {type(e).__name__}: {e}", file=sys.stderr)
-        print("⚠️ Bu 'drift yok' DEĞİLDİR — kaynağa bakılamadı.", file=sys.stderr)
+        print(f"NOT MEASURED: {type(e).__name__}: {e}", file=sys.stderr)
+        print("⚠️ This does NOT mean 'no drift' — the source could not be read.", file=sys.stderr)
         return 2
     digest = hashlib.sha256(raw).hexdigest()
     text = render(published, digest, rows)
@@ -97,19 +96,19 @@ def main() -> int:
         cur_codes = set(re.findall(r'\("([A-Z]{3})", (\d+)\)', cur))
         new_codes = set(re.findall(r'\("([A-Z]{3})", (\d+)\)', text))
         if cur_codes == new_codes:
-            print(f"iso4217 OK — {len(rows)} kod, kaynak yayını {published}")
+            print(f"iso4217 OK — {len(rows)} codes, source release {published}")
             return 0
         added, gone = sorted(new_codes - cur_codes), sorted(cur_codes - new_codes)
-        print(f"🔴 ISO 4217 DRIFT — kaynak yayını {published}")
+        print(f"🔴 ISO 4217 DRIFT — source release {published}")
         if added:
-            print(f"  eklenen/değişen: {added[:12]}")
+            print(f"  added/changed: {added[:12]}")
         if gone:
-            print(f"  kaybolan/eski  : {gone[:12]}")
-        print("  → python3 spec-audit/gen_iso4217.py ile tabloyu yenileyin.")
+            print(f"  missing/stale  : {gone[:12]}")
+        print("  → run python3 spec-audit/gen_iso4217.py to regenerate the table.")
         return 1
 
     OUT.write_text(text, encoding="utf-8")
-    print(f"yazıldı: {OUT.name} ({len(rows)} kod · yayın {published})")
+    print(f"wrote: {OUT.name} ({len(rows)} codes · release {published})")
     return 0
 
 

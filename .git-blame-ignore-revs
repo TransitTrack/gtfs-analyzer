@@ -1,0 +1,425 @@
+# Translate release workflow comments to English.
+47a7b8201927ce2fffd058b06ef2c9be0025c32a
+
+# Translate CI workflow comments to English.
+fa8b377506724c5deec6162661f990294a9e8c2b
+
+# Translate config comments and test messages to English.
+d7e4dbfbcb463a40d7616d481cbc36364be3c040
+
+# Translate core report comments to English.
+48e900d985f6ee6a0638d719d5ac03f5c7c1425c
+
+# Translate agency attribution comments to English.
+36b0f761bc1a75fb80b6f91e830bc58216377caa
+
+# Translate core enum comments to English.
+2d10a0f77fbf7970f2a07b259dc01dbefbe02f98
+
+# Translate core metrics and notice comments to English.
+0c322a4314991260b2475b133b0036f0eb955159
+
+# Translate WASM localization comments to English.
+7923aea35e6634d4781bde0aac9da341d41b4ce7
+
+# Translate WASM pipeline comments to English.
+4adf932d9c8262ff2a8afcf243d2cd59e410a1ae
+
+# Translate WASM test guards to English.
+03ced544e2c11036e6284ccc59f95e0dd6bd84aa
+
+# Translate decompression guard comments to English.
+a437b7fead18f724b6d1376167d54412da2c4e38
+
+# Translate remaining config test messages to English.
+371387efd3e427e0ede490b78e324740535dfac5
+
+# Translate remaining WASM test messages to English.
+4c1b54924616a543013d42446fdf2f85acbd6a20
+
+# Translate K1 type and ZIP comments to English.
+b95e1f4ebb2fea9f0620fc43750cab154da338d0
+
+# Translate K1 ZIP and CSV comments to English.
+92239e0e03a463547e624e8137299ee5cdccc27f
+
+# Translate K1 tokenizer and schema comments to English.
+12ffc80f6c15e8096d3b15a3f4c7dd37e1ac6a29
+
+# Translate K1 whitespace and row checks to English.
+5d06c76ec444ecd7f78e6e3b660e7807c989e614
+
+# Translate K1 character and markup comments to English.
+669260a0b55df9a97e673d9aeb4c6ae13abdc544
+
+# Translate K1 ID and column comments to English.
+92a6f718f955865c16bc7cf1cf5c7e2208f016ee
+
+# Translate K1 schema and wrapped-feed comments to English.
+6272e225a347f3658d6faa3056eb13c6ac2d0897
+
+# Translate K1 archive traversal comments to English.
+2694e3e5f50d6b27a957d71e386d27595437dcc4
+
+# Translate K1 streaming and header comments to English.
+d2252d6fb5e449f6b0634ce423b8a15f39a24999
+
+# Translate K1 row and file checks to English.
+17fab81f84c90bfc178455e4b92c301da91c1115
+
+# Translate K1 GeoJSON validation comments to English.
+10e927c657efb1f1aa7a38ad2ecb285889c7f817
+
+# Translate K1 geometry topology comments to English.
+f21d8ca071b911a21c2d3b75f27975043a0eafa6
+
+# Translate K1 archive and wrapper tests to English.
+0982df76c2bbdd4fdb4bf5a4bc0d9d2dc877636d
+
+# Translate K1 regression test comments to English.
+a8b3414743a2729f64915c1d4d489b63515d6af3
+
+# Translate K1 HTML entity test comments to English.
+d8a4ccc35d2e4678726ea06c6b2b6a0ef0d8f9c6
+
+# Translate remaining K1 comments to English.
+07ee649a540e431eda4077303b77b86251dafd9c
+
+# Translate K2 agency and attribution comments to English.
+5f1384e4dd2b0460c622d7f39246a28346ca311d
+
+# Translate K2 booking and calendar comments to English.
+33b1e8de5609bedadef77576b52918b6833773ee
+
+# Translate K2 fare and schedule comments to English.
+0bf47c0d201d5859f587cefad6ef153c5a8a3dd5
+
+# Translate remaining small K2 comments to English.
+72f4bfd950926b9e1772979c83e400aa369fbdb5
+
+# Translate generated K2 table comments to English.
+1e786cb076e9f4b89a1e1fc8b2624fd3ac0f9976
+
+# Translate K2 orchestration comments to English.
+be59ef73bab795c05f45f2f3a3beb4029823abca
+
+# Translate K2 pathway comments to English.
+63dd876ab014566065fd752227ba0afbb39f6f3f
+
+# Translate K2 route comments to English.
+b0a93bf664877908f3c9ec8af04aa807276920c1
+
+# Translate K2 shape comments to English.
+2b42de4193979b66ccf66be2f56809fb42036089
+
+# Translate K2 stop comments to English.
+24bdcbe373b15010538e78845242e9c292c22cab
+
+# Translate K2 translation comments to English.
+6f4a859dbb7baff951992d798669bfa5ed3551eb
+
+# Translate K2 trip comments to English.
+6d8324a46a511d9d11bcebbe868683a204b23570
+
+# Translate K2 common comments to English.
+431a0a9779484489a03519a2a98e3f7115044740
+
+# Translate missed trailing comments.
+f43597babe29ddaf46a92daeb5c336f7209913e0
+
+# Translate remaining inline Turkish comments.
+365e6da15610cec6775055707454a70114516085
+
+# Translate remaining tab comment.
+7abbbf5fbc1232facdc4d576ba4356f0b03cf9c7
+
+# Translate K3 comments.
+8a9eed8877fbd4fdd710ff6b1b7393749a69043a
+
+# Translate HTML generator headers.
+48d2f3f904c910bd6b402a17d34adcc105833b28
+
+# Translate HTML generator usage comments.
+08efe86850f0d180cc9420c9ccad63f57ce44ab9
+
+# Translate K4 cross-reference comments to English (part 1).
+2c775fb177bc7d64bcb127e9a8a33f4429fa4451
+
+# Translate remaining K4 comments and repair corrupted section dividers.
+693ac0076622980dd265aea337d3b45e10161d32
+
+# Translate K5 derived-data comments.
+77a9da7c2f862f7c9ec8ae1e8af21d5da28b3b46
+
+# Translate missed K5 inline comments and restore comment indentation.
+db19cd77f73bee21557012711e1c5fb967180349
+
+# Translate K7 reporting comments.
+6476529f21c58d00d1d215cd4b387095fcfc00df
+
+# Preserve K7 test message data.
+f4440ce0ef7d3d60fa9c8ca2c3b5e38a1fffe66a
+
+# Translate agency attribution comments.
+0f6722bcd191abe6bad30468edf2ee68528a8519
+
+# Translate pipeline support comments.
+6048105414c05288e16ee253a41e457088ed1d7d
+
+# Translate pipeline example comments.
+c8ae246a07f5a31d913ebb37ae845e3a618ed587
+
+# Translate pipeline test comments.
+1551d8b0469242c71fbc161d7e7e762d0422f57c
+
+# Translate real feed mutation comments.
+a1b0e006e5733960cffa9a5d58b144468faf02cf
+
+# Translate emit proof helper comments.
+d7972eba4a893a23953d7fcdf2354b567c9b5750
+
+# Preserve emit proof code spans.
+57060c7ea9a96905d2caad4a20602dcfbe7a2322
+
+# Translate missed pipeline inline comments.
+61b9c2a29cce534a9a639f06acb84bb3dbd8c3a6
+
+# Translate emit proof fixture comments.
+73d7d94df60c1dd2ce7d4690614d8983755b7321
+
+# Translate emit proof checks.
+dfdb3e775bd48426d6dfd13575d0944c0c26b685
+
+# Translate agency URL messages.
+e6e481c62bb65c756db1d3b8b66de65964aa03ae
+
+# Translate spec conformance helper text.
+d08d91e6148301406c13399f175fca99a56e1170
+
+# Reverted pipeline library translation (card-overlap file).
+120848b5d04f837a18123d2722783d0aaaeff4b5
+
+# Translate rules maintenance examples.
+b11de19152bbfa489faf6d2511230be9ffc5628e
+
+# Preserve formatting in rules maintenance examples.
+7b826078b8a9aa092f21dd51e45a52cc54dc6758
+
+# Translate rules test comments.
+a490143cb0c0f075cab8e947ad0154e8a08fe96b
+
+# Preserve formatting in rules tests.
+c5d5ea94aa8c748db1b8c0c067a05e9db12a75ce
+
+# Translate rules registry comments.
+5a1d9eb30710d317e74b8055eccb9c4290cb5d36
+
+# Preserve registry code spans.
+cee272f4b0282c6e7bf55f492071e789d7f067c7
+
+# Translate pipeline library comments.
+4bceebf5963dd2875f8b2fdb7042117acc83a2df
+
+# Translate stop times comments (part 1).
+edd6fb373173b7ac2b7856ff8da77392c4acf0f0
+
+# Translate stop times comments (part 2).
+7937147f5c754ba0ae9bdfa347518b227396acbd
+
+# Translate integration test comments (part 1).
+8a19188ed8e8fff99d7c3efdc179d8f5730bae16
+
+# Translate integration test comments (part 2).
+084210a238fc254680831a11873ba8fcf70bc443
+
+# Translate integration test comments (part 3).
+1f9afd1d00f21b4e2b27e2db09b04e219ed43e28
+
+# Translate integration test comments (part 4).
+ab0ab6701fbf7964b39ec9dfcc565b79a2a00d0c
+
+# Translate integration test comments (part 5).
+4451fd7965081058addd514affdb8c9c05ab08c4
+
+# Translate integration test comments (part 6).
+55a3b1555664ce53a09718f7699f0be7f6dde1fb
+
+# Translate integration test comments (part 7).
+acf4ca3265219ba09a584db3d437baf9ba387be7
+
+# Translate K6 analytics comments (part 1).
+6a8da2035486a1388cda54e9aeafb840fd87bc8e
+
+# Translate K6 analytics comments (part 2).
+9e41132456206ae0a959c73e256e72100444c493
+
+# Translate K6 analytics comments (part 3).
+fe26f82e2d061315c957d011059bc525f37189cc
+
+# Translate K6 analytics comments (part 4).
+371d9b5c095fed5fb16e5bdffbe974fffdf5c9f1
+
+# Translate K6 analytics comments (part 5).
+688c4f2bfb502cadd72f650735c9e71f5a0afdce
+
+# Translate K6 analytics comments (part 6).
+5d56336f8e497823dca47b32f30d45a6b5cddcbd
+
+# Translate K6 analytics comments (part 7).
+201bb5d9a8295d9974f4ee42d00969b34824ed87
+
+# Translate K6 analytics comments (part 8).
+47dec1cdab0da4e33df62148888b01c8347d2999
+
+# Translate K6 analytics comments (part 9).
+d1ae6dcd2636d78af43feca21a81169d91f5a70c
+
+# Translate UI helper comments to English.
+9236235ed75f4ba2aa09d7f96764792e7d093043
+
+# Translate UI state and locale comments to English.
+8a6731341af7d0b42ca1bfb507723b8c45e726b4
+
+# Translate UI map and compare comments to English.
+d9aed1d6629f636d7b5461d55003c51bce9d2712
+
+# Translate UI test comments to English.
+0120e8b1c505b7d4f8ef8c99116c45512f113bb4
+
+# Translate UI report comments to English.
+78e77ae60d5e44891da9fc606f89732425c5c178
+
+# Translate UI export comments to English.
+90f5aa5659c825662c29927366858106237b99bc
+
+# Translate UI runtime comments to English.
+f6a2b295597ee5e62cdfee071d626fa29b312a63
+
+# Translate UI upload comments to English.
+695c0cf2928c763d8555694104a88d14f2a6d76a
+
+# Preserve UI upload code span.
+096b9bfabcf977f469e2148f4f50d28d3060a1b3
+
+# Translate UI fix comments to English.
+c05a7b5aa55d6c94be0ad656366cbe4144ca9895
+
+# Translate badge audit comments to English.
+01e04a187c91b3727efdbe8240a98e5de3121e44
+
+# Translate corpus audit comments to English.
+1bed663dea307f806feb10807a9afd0b9309e4ba
+
+# Translate spec measurement comments to English.
+7386c193e8ce413b111d77786ee5dcb98e65e194
+
+# Translate corpus helper comments to English.
+b3af4bb14de5a8a12404148580d49829b5053fd3
+
+# Translate rule scan comments to English.
+e5f0ea69d03b4a35b94972ac9189cc3d87c62d29
+
+# Translate corpus batch comments to English.
+2334865ea564899ef88f362a7d7d2a40eafd2d78
+
+# Translate provision extraction comments to English.
+0adc78054843cce7414d9079a8dc9d98e34ae86e
+
+# Translate parity mapping comments to English.
+d4b1b635ed9907ebae2480010e2552dfff20d7d0
+
+# Translate parity audit test comments to English.
+ccbd447e67a138f6af0e4cbe5a5370b6c8fdf887
+
+# Translate parity audit comments to English.
+f094bfe30f78edf146f05a12a9ec6ffcf71595b0
+
+# Translate rules comments to English.
+09ff158956ed65e23651889f2cb8022430104770
+
+# Translate CLI test comments to English.
+de2cae9ed76d19bae4faace07f1f371764580c4c
+
+# Translate result comments to English.
+0386daa5e64391841e66623e9efbaca4669ed380
+
+# Translate Python and proof-test comments to English.
+dd7d2488139cd23b2cfae3e6e23e7768bc620f8f
+
+# Translate version, benchmark, and CI comments to English.
+587601656db67803ff8e93ef663aee8dd353be99
+
+# Translate benchmark timing documentation to English.
+cb80fdf8dd449a9ce44d6e3c3189e248cda7481f
+
+# Translate generator developer messages to English.
+a653accf82a534dc140a47f49d1a11e8f295ba5f
+
+# Keep gate-compatible generator diagnostics.
+909b724cb874dab35157ddba0e0c7af37322fa60
+
+# Translate remaining generator diagnostics.
+2bee005905348bf5a9a55f4bedb706e54243e3db
+
+# Translate ignored test reasons.
+0cd90756cc4031daecaf266ad68fd0efc3212cb2
+
+# Retain gate-compatible ignored report labels.
+349f51c7919816634f9e29abbf748ced1e210545
+
+# Translate ignored report labels.
+954b4fe2961c4b95c05dae5c284ffb4c7f54f2a5
+
+# Translate developer script messages.
+339f86f20c1d936c845e4b310cad4b72669d5a9c
+
+# Retain gate-compatible fingerprint label.
+20d84e7ed82d04330d95a0a7a7dd493c3e859006
+
+# Translate fingerprint diagnostic.
+66dbec20fc87632607cd0d36f31d1e54066f0b29
+
+# Translate audit script output.
+9968704b4b12c31d734114e1026845ce5ad25dfa
+
+# Retain gate-compatible report headings.
+c701ed904a0a4691a1669e0cd8a4c78f2c1ea9e3
+
+# Translate parity report headings.
+7ed9deeed6c0b4387026aa6872384616c1d8ee02
+
+# Translate SDK script diagnostics.
+6fb939b14c613397ac783527dce7b4886ac37fb7
+
+# Translate spec audit diagnostics.
+e29e686525ffdabcc1223f49df0fb3dbf2904c41
+
+# Translate audit status diagnostics.
+938de02ff3e4c016f16723c763660a4b3d474b29
+
+# Translate corpus audit diagnostics.
+0a24155b94f10ce95da7799cbcdf64840ba7038e
+
+# Translate corpus batch diagnostics.
+455ba07d6b90f9271cc51c3115b51fc5f246dfe9
+
+# Translate corpus report output.
+cccc0b157ec34edd82b8a9158f47dccd878188a8
+
+# Translate generator diagnostics.
+289164000cbb5d4a17f8870d433f89180036bc62
+
+# Translate field generator error.
+4f6a938cc37439b5db661485d79eb4dafbdb2921
+
+# Translate parity test diagnostics.
+01a2f48357506bc730459f3036472837ae2fba78
+
+# Translate corpus batch help.
+15f6cf5a9021673d4c91689d1eecedefbec69bf8
+
+# Translate remaining developer console messages to English.
+2402371f1f8f77b1d2790973df36d5c75ac4fffa
+
+# Keep original line layout for translated console messages.
+e93b0761dd2fa2b6a6bf59fdd3dc2ac6327f6a28

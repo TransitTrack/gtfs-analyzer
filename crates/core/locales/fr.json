@@ -224,7 +224,7 @@
     "LOC_003": "L’objet Feature {observed_value} de locations.geojson n’a pas la propriété obligatoire « id ».",
     "LOC_004": "L’objet Feature {observed_value} de locations.geojson comporte un anneau de polygone non fermé.",
     "LOC_005": "La FeatureCollection de locations.geojson ne contient aucun objet Feature.",
-    "LOC_006": "L’objet Feature {observed_value} de locations.geojson couvre une très grande superficie (~{observed_value} km²).",
+    "LOC_006": "L’objet Feature {line} de locations.geojson couvre une très grande superficie (~{observed_value}).",
     "LOC_007": "locations.geojson contient des valeurs « id » d’objet Feature en double : « {observed_value} ».",
     "LOC_010": "Un objet Feature de « {entity_id} » n’a pas de tableau « coordinates » de géométrie.",
     "LOC_009": "Un objet Feature de « {entity_id} » n’a pas d’objet « properties ».",
@@ -1916,6 +1916,11 @@
     "ResourceLimit.config_size": "Le JSON de configuration dépasse la limite de sécurité de 4 Mio.",
     "InvalidInput.today": "Valeur « today » invalide : {today} (format attendu AAAAMMJJ, p. ex. 20260716)",
     "InvalidInput.config_parse": "Erreur d’analyse de la configuration : {detail}",
+    "ResourceLimit.browser_memory": "Le jeu de données est trop volumineux pour le navigateur : la mémoire WASM est épuisée. Essayez un jeu plus petit. ({detail})",
+    "ResourceLimit.timeout": "La validation ne s’est pas terminée en {minutes} minutes. Essayez un jeu de données plus petit.",
+    "ResourceLimit.timeout_at_stage": "La validation ne s’est pas terminée en {minutes} minutes. Essayez un jeu de données plus petit. (dernière étape terminée : {stage})",
+    "ResourceLimit.worker_crash": "Le worker de validation en arrière-plan s’est arrêté de façon inattendue. {detail}",
+    "ResourceLimit.worker_crash_at_stage": "Le worker de validation en arrière-plan s’est arrêté de façon inattendue. {detail} (dernière étape terminée : {stage})",
     "InvalidInput.disabled_rule_unknown": "La règle « {rule_id} » de disabled_rule_ids n’est pas un identifiant de règle connu.",
     "InvalidInput.disabled_rule_spec": "La règle « {rule_id} » est une règle Spec et ne peut pas être désactivée : le verdict de publiabilité repose sur les règles Spec."
   }

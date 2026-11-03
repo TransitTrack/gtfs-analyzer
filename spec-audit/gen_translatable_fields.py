@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""translations.txt::field_name için spec TÜRÜNÜ taşıyan tabloyu üretir.
+"""Generate the table that carries the spec TYPE for translations.txt::field_name.
 
-GTFS'in tek hükmü tür eksenindedir (`P7c7134fe`, soft): *"Fields with other types
-should not be translated."* Çevrilebilir türler Text, URL, Email ve Phone number'dır.
-`TRN_011` bu tabloya sorar; el yapımı ad sezgisi (alan adında "name"/"url" aramak)
-spec'i temsil etmiyordu ve `stops::stop_code` gibi Text alanlarda yanlış konuşuyordu.
+GTFS's only rule concerns the type axis (`P7c7134fe`, soft): *"Fields with other types
+should not be translated."* Translatable types are Text, URL, Email, and Phone number.
+`TRN_011` queries this table; hand-written name heuristics (looking for "name"/"url" in
+the field name) did not represent the spec and spoke incorrectly for Text fields such as
+`stops::stop_code`.
 
-Kaynak `spec-audit/spec_fields.json` — o da üretilmiş bir dosyadır
-(`spec-audit/extract_fields.py`), yani zincir spec referansına dayanır.
+Source: `spec-audit/spec_fields.json` — it is also a generated file
+(`spec-audit/extract_fields.py`), so the chain is anchored to the spec reference.
 
-Kullanım:
-  python3 spec-audit/gen_translatable_fields.py           # tabloyu yaz
-  python3 spec-audit/gen_translatable_fields.py --check    # drift kapısı
+Usage:
+  python3 spec-audit/gen_translatable_fields.py           # write the table
+  python3 spec-audit/gen_translatable_fields.py --check    # drift gate
 """
 
 import json
@@ -23,10 +24,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "spec-audit/spec_fields.json"
 OUT = ROOT / "crates/pipeline/src/k2/translatable_fields_generated.rs"
 
-# `translations.txt::table_name` resmi GTFS şemasındaki tablo adına karşılık gelir.
-# `translations.txt` kendi satırlarını çevrilecek kaynak tablo olarak sunmaz; diğer
-# tablolar katalogdan dinamik olarak alınır. Böylece yeni resmi tablolar (ör.
-# `location_groups.txt`) ayrıca elle whitelist'e eklenmek zorunda kalmaz.
+# `translations.txt::table_name` maps to a table name in the official GTFS schema.
+# `translations.txt` does not offer its own rows as source tables for translation; the other
+# tables are loaded dynamically from the catalog. Thus new official tables (e.g.
+# `location_groups.txt`) do not need to be added to the whitelist by hand.
 EXCLUDED_TABLES = {"translations"}
 
 TRANSLATABLE_TYPES = {"Text", "URL", "Email", "Phone number"}
@@ -44,39 +45,39 @@ def build():
     for table in tables:
         entry = files.get(f"{table}.txt")
         if entry is None:
-            raise SystemExit(f"spec_fields.json içinde {table}.txt yok")
+            raise SystemExit(f"{table}.txt is missing from spec_fields.json")
         for field in entry["fields"]:
             rows.append((table, field["name"], field["type"] in TRANSLATABLE_TYPES))
     rows.sort(key=lambda r: (r[0], r[1]))
     yes = sum(1 for r in rows if r[2])
     body = "\n".join(f'    ("{t}", "{f}", {str(ok).lower()}),' for t, f, ok in rows)
-    text = f"""//! ÜRETİLMİŞ DOSYA — elle düzenlemeyin.
+    text = f"""//! GENERATED FILE — do not edit by hand.
 //!
-//! Kaynak  : `spec-audit/spec_fields.json` (o da üretilmiş: `spec-audit/extract_fields.py`)
-//! Üretim  : `python3 spec-audit/gen_translatable_fields.py`
+//! Source  : `spec-audit/spec_fields.json` (it is also generated: `spec-audit/extract_fields.py`)
+//! Generation: `python3 spec-audit/gen_translatable_fields.py`
 //! Drift   : `python3 spec-audit/gen_translatable_fields.py --check`
 //!
-//! Spec'in `translations.txt::field_name` hakkındaki TEK hükmü tür eksenindedir
+//! The spec's ONLY rule for `translations.txt::field_name` concerns the type axis
 //! (`P7c7134fe`, soft): *"Fields with other types should not be translated."*
-//! Çevrilebilir türler: {", ".join(sorted(TRANSLATABLE_TYPES))}.
+//! Translatable types: {", ".join(sorted(TRANSLATABLE_TYPES))}.
 //!
-//! ⚠️ Tabloda OLMAYAN bir alan hakkında bu dosya hüküm vermez. Uzantı alanları
-//! (`jp_trip_desc_symbol` gibi) spec kataloğunda yoktur ve türleri bilinmez;
-//! `spec_field_is_translatable` orada `None` döner ve çağıran SUSMALIDIR.
+//! ⚠️ This file makes no ruling about a field NOT IN THE TABLE. Extension fields
+//! (such as `jp_trip_desc_symbol`) are absent from the spec catalog and their types are unknown;
+//! `spec_field_is_translatable` returns `None` there and the caller MUST STAY SILENT.
 
-/// `translations.txt::table_name` için resmi GTFS tablo adları.
+/// Official GTFS table names for `translations.txt::table_name`.
 pub(crate) const SPEC_TRANSLATION_TABLES: &[&str] = &[
 {chr(10).join(f'    "{t}",' for t in tables)}
 ];
 
-/// (tablo, alan, çevrilebilir tür mü) — (tablo, alan)'a göre SIRALI;
-/// `binary_search_by` bunu varsayar.
+/// (table, field, translatable type?) — SORTED by (table, field);
+/// `binary_search_by` relies on this.
 pub(crate) const SPEC_TRANSLATION_FIELDS: &[(&str, &str, bool)] = &[
 {body}
 ];
 
-/// `Some(true)` çevrilebilir tür · `Some(false)` bilinen ama çevrilemez tür ·
-/// `None` spec kataloğunda yok (uzantı alanı) → hüküm verilemez.
+/// `Some(true)` translatable type · `Some(false)` known but non-translatable type ·
+/// `None` absent from the spec catalog (extension field) → no ruling is possible.
 pub(crate) fn spec_field_is_translatable(table: &str, field: &str) -> Option<bool> {{
     SPEC_TRANSLATION_FIELDS
         .binary_search_by(|(t, f, _)| (*t, *f).cmp(&(table, field)))
@@ -106,25 +107,25 @@ def main():
         cur_tables = set(re.findall(table_row_pattern, cur_table_block.group(1))) if cur_table_block else set()
         new_tables = set(re.findall(table_row_pattern, new_table_block.group(1))) if new_table_block else set()
         if cur_rows == new_rows and cur_tables == new_tables:
-            print(f"translatable_fields OK — {len(rows)} alan, {yes} çevrilebilir")
+            print(f"translatable_fields OK — {len(rows)} fields, {yes} translatable")
             return 0
         added = sorted(new_rows - cur_rows)
         gone = sorted(cur_rows - new_rows)
         print("🔴 TRANSLATABLE FIELDS DRIFT")
         if added:
-            print(f"  eklenen/değişen: {added[:12]}")
+            print(f"  added/changed: {added[:12]}")
         if gone:
-            print(f"  kaybolan/eski  : {gone[:12]}")
+            print(f"  missing/stale  : {gone[:12]}")
         added_tables = sorted(new_tables - cur_tables)
         gone_tables = sorted(cur_tables - new_tables)
         if added_tables:
-            print(f"  eklenen tablolar: {added_tables[:12]}")
+            print(f"  added tables: {added_tables[:12]}")
         if gone_tables:
-            print(f"  kaldırılan tablolar: {gone_tables[:12]}")
-        print("  → python3 spec-audit/gen_translatable_fields.py ile tabloyu yenileyin.")
+            print(f"  removed tables: {gone_tables[:12]}")
+        print("  → run python3 spec-audit/gen_translatable_fields.py to regenerate the table.")
         return 1
     OUT.write_text(text, encoding="utf-8")
-    print(f"yazıldı: {OUT.name} ({len(rows)} alan · {yes} çevrilebilir)")
+    print(f"wrote: {OUT.name} ({len(rows)} fields · {yes} translatable)")
     return 0
 
 

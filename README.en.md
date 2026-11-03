@@ -296,9 +296,9 @@ To embed validation in your own Rust service, use `gtfs-pipeline` directly — n
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.1"
-gtfs-config   = "0.17.1"
-gtfs-core     = "0.17.1"
+gtfs-pipeline = "0.18.1"
+gtfs-config   = "0.18.1"
+gtfs-core     = "0.18.1"
 ```
 
 ```rust
@@ -324,7 +324,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### `gtfs-sdk` npm package
 
-`gtfs-sdk` exposes the v0.17.1 validation engine as a typed JavaScript/TypeScript API. The feed is validated with local WASM and never leaves the application:
+`gtfs-sdk` exposes the v0.18.1 validation engine as a typed JavaScript/TypeScript API. The feed is validated with local WASM and never leaves the application:
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -361,6 +361,16 @@ print(len(result["notices"]))
 `result` carries the same core result as the npm SDK and the CLI JSON output.
 Parameters, the result structure, and error types are described in
 [`python/README.md`](python/README.md).
+
+### Community bindings
+
+| Language | Package | Maintained by |
+|---|---|---|
+| Kotlin / JVM | [`io.github.transittrack:gtfs-analyzer`](https://central.sonatype.com/artifact/io.github.transittrack/gtfs-analyzer) | Its authors, outside this repository |
+
+Community bindings are not tested in this repository and do not ship from its release
+process. Report engine findings here and binding-specific issues to the package's own
+repository.
 
 ---
 
@@ -400,6 +410,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | Flag | Description |
 | --- | --- |
 | `--json` | Writes the full result as JSON |
+| `--compact-json` | Emit the canonical compact JSON projection for machine consumers; add R9 root-cause samples with `--samples N` |
 | `--summary` | Short summary: status, notice count, scores (default; cannot be combined with `--json`) |
 | `--rule SHP_010` | Only notices for the given rule |
 | `--severity critical` | Notices with exactly this severity (critical/high/medium/low/info) |
@@ -411,6 +422,8 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | `--fail-on-class spec` | Exit 1 only when a notice in these classes is present |
 | `--pretty` | Indent the JSON output (requires `--json`) |
 | `--include-name-index` | Include `name_index` (stop/route/shape lookup tables) in the JSON |
+| `--max-notices-per-rule 20` | Keep at most N notices per rule in the JSON; real counts of truncated rules go to `capped_totals`, R1/R5/R9 are still computed over every notice (requires `--json`) |
+| `--samples N` | With `--compact-json`, add the first N root-cause findings per R9 rule (`entity_type`, `entity_id`, `file`, `line`, `field`, `observed_value`, `expected_value`) |
 | `-o report.json` | Write the output to a file instead of stdout |
 | `--lang en` | Language of the finding texts: `en` (default) / `tr` / `ja` / `fr` |
 | `--config config.json` | Apply a JSON config delta (on top of `ValidatorConfig::default()`) |
@@ -423,6 +436,22 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 Pass `-` instead of a path to read the ZIP from **stdin**: `curl -sL <url> | gtfs-analyzer validate - --json`. (The ZIP central directory lives at the end of the file, so the archive is buffered in memory rather than streamed.)
 
 > **Counts differ from the web UI.** The browser caps how many findings it keeps per rule for performance (the real totals are reported in `capped_totals`). The CLI applies **no such cap** — the same feed yields more notices and unscaled R9 impact figures. This is expected; do not compare the two outputs count by count.
+
+### Compact JSON and the web cap
+
+`--compact-json` is the canonical machine-consumer projection: it omits the individual
+`notices` list and `name_index` tables from the full `--json` report. Its top level
+contains `status`, `engine`, `engine_version`, `engine_commit`,
+`validation_date`, `partial`, `analysis`, `reports.r1`, `reports.r5`,
+`reports.r9`, `metrics`, `notice_counts`, and `triggered_rule_count`.
+Each `reports.r9.items` entry contains rule title, severity, class, message, remediation,
+priority, impact, and score-delta fields; `--samples N` adds up to N root-cause
+examples to each item.
+
+`--compact-json` is not the web UI payload and does not apply a per-rule sample cap by
+itself. To approximate the web UI's visible notice list in full CLI JSON, use
+`--json --max-notices-per-rule 500`; R1/R5/R9 are still computed over the complete
+notice list and truncated rules are reported in `capped_totals`.
 
 **Exit codes:** `0` no notices · `1` notices present or a `PARTIAL` report · `2` fatal or config/file error. A `PARTIAL` report safely skips unavailable inputs and continues independent checks; JSON exposes `status: "partial"`, `validation_status: "PARTIAL"`, and the `partial` scope. `partial.skipped_checks` lists the K4/K5/K6 check families and individual rules skipped because prerequisites were unavailable; `partial.skipped_stages` is retained for coarse stage metadata. With `--fail-on*`, `1` is returned only for a matching notice; other findings are still reported but do not fail the run. In JSON mode stdout is JSON only; errors go to stderr.
 
@@ -459,9 +488,9 @@ gtfs-analyzer rules --class spec --severity critical
 gtfs-analyzer rules --rule STM_004 --json --pretty
 ```
 
-Fields: `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`.
+Fields: `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`, `message`, `remediation`.
 The `--class` / `--severity` / `--min-severity` / `--rule` filters mean the same as in `validate`.
-`--lang` applies here too (rule titles).
+`--lang` applies here too (rule titles, messages and remediations).
 
 ### Output language
 
@@ -700,7 +729,7 @@ In large feeds the same rule can fire thousands of times. Unlimited notice lists
 | --- | --- | --- |
 | Per rule (default) | 500 | All rules |
 | Per rule (high) | 2,000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
-| Total (all rules) | 100,000 | Feed-wide — validation stops if exceeded |
+| Total (all rules) | — | v0.18.0 has no feed-wide 100,000 stop limit |
 
 Rules in the high-cap list naturally produce large counts in real feeds (e.g., one headway record per trip). When a rule hits its cap, the actual violation count appears in the **Total** column of the Fix Queue; on the All Findings tab, selecting that rule filter shows a yellow warning banner.
 

@@ -299,9 +299,9 @@ Pour intégrer la validation dans votre propre service Rust, utilisez directemen
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.1"
-gtfs-config   = "0.17.1"
-gtfs-core     = "0.17.1"
+gtfs-pipeline = "0.18.1"
+gtfs-config   = "0.18.1"
+gtfs-core     = "0.18.1"
 ```
 
 ```rust
@@ -327,7 +327,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### Paquet npm `gtfs-sdk`
 
-`gtfs-sdk` expose le moteur de validation v0.17.1 sous forme d’API JavaScript/TypeScript typée. Le jeu de données est validé par WASM local et ne quitte jamais l’application :
+`gtfs-sdk` expose le moteur de validation v0.18.1 sous forme d’API JavaScript/TypeScript typée. Le jeu de données est validé par WASM local et ne quitte jamais l’application :
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -365,6 +365,16 @@ print(len(result["notices"]))
 `result` contient le même résultat de base que le SDK npm et la sortie JSON de
 la CLI. Paramètres, structure du résultat et types d’erreur :
 [`python/README.md`](python/README.md) (en anglais).
+
+### Liaisons communautaires
+
+| Langage | Paquet | Maintenance |
+|---|---|---|
+| Kotlin / JVM | [`io.github.transittrack:gtfs-analyzer`](https://central.sonatype.com/artifact/io.github.transittrack/gtfs-analyzer) | Par ses auteurs, hors de ce dépôt |
+
+Les liaisons communautaires ne sont pas testées dans ce dépôt et ne sont pas publiées
+par son processus de version. Signalez ici les problèmes du moteur, et ceux propres à
+la liaison dans le dépôt du paquet.
 
 ---
 
@@ -404,6 +414,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | Option | Description |
 | --- | --- |
 | `--json` | Écrit le résultat complet en JSON |
+| `--compact-json` | Produit la projection JSON compacte canonique pour les consommateurs machine ; ajoutez des exemples R9 avec `--samples N` |
 | `--summary` | Résumé court : statut, nombre de signalements, scores (par défaut ; incompatible avec `--json`) |
 | `--rule SHP_010` | Uniquement les signalements de la règle indiquée |
 | `--severity critical` | Signalements de cette gravité exacte (critical/high/medium/low/info) |
@@ -415,6 +426,8 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | `--fail-on-class spec` | Sortie 1 uniquement si un signalement de ces classes est présent |
 | `--pretty` | Indente la sortie JSON (nécessite `--json`) |
 | `--include-name-index` | Inclut `name_index` (tables de correspondance arrêts/lignes/tracés) dans le JSON |
+| `--max-notices-per-rule 20` | Conserve au plus N signalements par règle dans le JSON ; le nombre réel des règles tronquées figure dans `capped_totals`, R1/R5/R9 restent calculés sur tous les signalements (nécessite `--json`) |
+| `--samples N` | Avec `--compact-json`, ajoute les N premiers signalements de cause racine par règle R9 (`entity_type`, `entity_id`, `file`, `line`, `field`, `observed_value`, `expected_value`) |
 | `-o report.json` | Écrit la sortie dans un fichier au lieu de stdout |
 | `--lang en` | Langue des textes de signalement : `en` (par défaut) / `tr` / `ja` / `fr` |
 | `--config config.json` | Applique un delta de configuration JSON (par-dessus `ValidatorConfig::default()`) |
@@ -427,6 +440,22 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 Passez `-` à la place d’un chemin pour lire le ZIP depuis **stdin** : `curl -sL <url> | gtfs-analyzer validate - --json`. (Le répertoire central du ZIP se situant en fin de fichier, l’archive est mise en mémoire tampon plutôt que traitée en flux.)
 
 > **Les décomptes diffèrent de ceux de l’interface web.** Le navigateur plafonne le nombre de signalements conservés par règle pour des raisons de performance (les totaux réels figurent dans `capped_totals`). La CLI **n’applique aucun plafond** — le même jeu de données produit davantage de signalements et des chiffres d’impact R9 non réduits. C’est attendu ; ne comparez pas les deux sorties décompte par décompte.
+
+### JSON compact et plafond web
+
+`--compact-json` est la projection canonique destinée aux consommateurs machine : elle
+omet la liste détaillée `notices` et les tables `name_index` du rapport complet
+`--json`. Elle contient au niveau supérieur `status`, `engine`,
+`engine_version`, `engine_commit`, `validation_date`, `partial`, `analysis`,
+`reports.r1`, `reports.r5`, `reports.r9`, `metrics`, `notice_counts` et
+`triggered_rule_count`. Chaque élément de `reports.r9.items` contient le titre, la
+gravité, la classe, le message, la correction, la priorité, l’impact et les variations
+de score ; `--samples N` ajoute jusqu’à N exemples de cause racine à chaque élément.
+
+`--compact-json` n’est pas le payload de l’interface web et n’applique pas de plafond
+par règle. Pour approximer dans le JSON complet de la CLI la liste visible dans l’interface,
+utilisez `--json --max-notices-per-rule 500` ; R1/R5/R9 restent calculés sur toute la
+liste et les règles tronquées sont indiquées dans `capped_totals`.
 
 **Codes de sortie :** `0` aucun signalement · `1` signalements présents ou rapport `PARTIAL` · `2` erreur fatale, de configuration ou de fichier. Un rapport `PARTIAL` ignore sans danger les entrées indisponibles et poursuit les contrôles indépendants ; le JSON expose `status: "partial"`, `validation_status: "PARTIAL"` et la portée `partial`. `partial.skipped_checks` liste les familles de contrôles K4/K5/K6 et les règles individuelles ignorées faute de prérequis ; `partial.skipped_stages` est conservé pour les métadonnées d’étape grossières. Avec `--fail-on*`, `1` n’est renvoyé que pour un signalement correspondant ; les autres constats sont tout de même rapportés sans faire échouer l’exécution. En mode JSON, stdout ne contient que du JSON ; les erreurs vont vers stderr.
 
@@ -463,9 +492,9 @@ gtfs-analyzer rules --class spec --severity critical
 gtfs-analyzer rules --rule STM_004 --json --pretty
 ```
 
-Champs : `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`.
+Champs : `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`, `message`, `remediation`.
 Les filtres `--class` / `--severity` / `--min-severity` / `--rule` ont le même sens que dans `validate`.
-`--lang` s’applique ici aussi (titres des règles).
+`--lang` s’applique ici aussi (titres, messages et corrections des règles).
 
 ### Langue de sortie
 
@@ -704,7 +733,7 @@ Dans les gros jeux de données, une même règle peut se déclencher des millier
 | --- | --- | --- |
 | Par règle (défaut) | 500 | Toutes les règles |
 | Par règle (élevé) | 2 000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
-| Total (toutes règles) | 100 000 | À l’échelle du jeu de données — la validation s’arrête si ce total est dépassé |
+| Total (toutes règles) | — | v0.18.0 n’a pas de limite d’arrêt de 100 000 signalements à l’échelle du jeu de données |
 
 Les règles du plafond élevé produisent naturellement de grands décomptes sur des jeux de données réels (par exemple un enregistrement d’intervalle par course). Lorsqu’une règle atteint son plafond, le nombre réel de violations apparaît dans la colonne **Total** de la file de correction ; dans l’onglet Tous les signalements, la sélection de ce filtre de règle affiche une bannière d’avertissement jaune.
 

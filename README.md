@@ -297,9 +297,9 @@ Doğrulamayı kendi Rust servisinize gömmek için `gtfs-pipeline`'ı doğrudan 
 
 ```toml
 [dependencies]
-gtfs-pipeline = "0.17.1"
-gtfs-config   = "0.17.1"
-gtfs-core     = "0.17.1"
+gtfs-pipeline = "0.18.1"
+gtfs-config   = "0.18.1"
+gtfs-core     = "0.18.1"
 ```
 
 ```rust
@@ -325,7 +325,7 @@ match validate_bytes(&zip, &config, 20_260_820) {
 
 ### `gtfs-sdk` npm paketi
 
-`gtfs-sdk`, v0.17.1 doğrulama motorunu typed JavaScript/TypeScript API olarak sunar. Feed uygulamadan çıkmadan yerel WASM ile doğrulanır:
+`gtfs-sdk`, v0.18.1 doğrulama motorunu typed JavaScript/TypeScript API olarak sunar. Feed uygulamadan çıkmadan yerel WASM ile doğrulanır:
 
 ```js
 import { validateGtfs } from "gtfs-sdk";
@@ -365,6 +365,15 @@ print(len(result["notices"]))
 sonuç yapısı ve hata türleri için [`python/README.md`](python/README.md)
 dosyasına bakın.
 
+### Topluluk bağlamaları
+
+| Dil | Paket | Bakım |
+|---|---|---|
+| Kotlin / JVM | [`io.github.transittrack:gtfs-analyzer`](https://central.sonatype.com/artifact/io.github.transittrack/gtfs-analyzer) | Bu deponun dışında, kendi yazarlarınca |
+
+Topluluk bağlamaları bu depoda test edilmez ve bu deponun yayın sürecinden çıkmaz.
+Motor bulgularını buraya, bağlamaya özgü sorunları paketin kendi deposuna bildirin.
+
 ## CLI (Terminal)
 
 Aynı doğrulama çekirdeğini terminalden çalıştırabilirsiniz — toplu iş, betikleme ve Python/otomasyon entegrasyonu için.
@@ -403,6 +412,7 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | Bayrak | Açıklama |
 | --- | --- |
 | `--json` | Sonucun tamamını JSON olarak yazar |
+| `--compact-json` | Makine tüketicileri için kanonik kısa JSON görünümü üretir; `--samples N` ile R9 kök neden örnekleri eklenebilir |
 | `--summary` | Kısa özet: durum, notice sayısı, skorlar (varsayılan; `--json` ile birlikte kullanılamaz) |
 | `--rule SHP_010` | Yalnızca verilen kural için notice'lar |
 | `--severity critical` | Tam olarak bu öneme sahip notice'lar (critical/high/medium/low/info) |
@@ -414,6 +424,8 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 | `--fail-on-class spec` | Exit 1 yalnızca bu sınıflarda notice varsa |
 | `--pretty` | JSON'ı girintili yazar (`--json` gerektirir) |
 | `--include-name-index` | `name_index`'i (durak/hat/shape arama tabloları) JSON'a dahil eder |
+| `--max-notices-per-rule 20` | JSON'da kural başına en fazla N bulgu tutar; kesilen kuralların gerçek sayısı `capped_totals`'ta, R1/R5/R9 tüm bulgulardan hesaplanır (`--json` gerektirir) |
+| `--samples N` | `--compact-json` ile her R9 kuralına K7 sırasındaki ilk N kök neden bulgusunu (`entity_type`, `entity_id`, `file`, `line`, `field`, `observed_value`, `expected_value`) ekler |
 | `-o rapor.json` | Çıktıyı stdout yerine dosyaya yazar |
 | `--lang en` | Bulgu metinlerinin dili: `en` (varsayılan) / `tr` / `ja` / `fr` |
 | `--config config.json` | JSON config delta uygular (`ValidatorConfig::default()` üzerine) |
@@ -427,6 +439,21 @@ cargo run -p gtfs-analyzer -- validate feed.zip --json
 Feed yolu yerine `-` verilirse ZIP **stdin'den** okunur: `curl -sL <url> | gtfs-analyzer validate - --json`. (ZIP merkezi dizini dosyanın sonunda olduğundan arşiv belleğe alınır, akış hâlinde işlenmez.)
 
 > **Arayüzle sayı farkı:** Tarayıcı, kural başına bulgu örneklerini performans için sınırlar (gerçek toplamlar `capped_totals`'ta bildirilir). CLI bu sınırı **uygulamaz** — aynı feed'de daha çok notice ve sınırlanmamış R9 etki değerleri döner. Fark beklenen davranıştır; iki çıktıyı doğrudan sayı sayı karşılaştırmayın.
+
+### Compact JSON ve web sınırı
+
+`--compact-json`, tam `--json` raporundaki her notice'ı ve `name_index` tablolarını
+taşımayan, makine tüketicileri için kanonik bir projeksiyondur. Üst düzeyde `status`,
+`engine`, `engine_version`, `engine_commit`, `validation_date`, `partial`,
+`analysis`, `reports.r1`, `reports.r5`, `reports.r9`, `metrics`,
+`notice_counts` ve `triggered_rule_count` alanlarını içerir. `reports.r9.items`
+her kuralın başlık, önem, sınıf, mesaj, düzeltme, öncelik, etki ve skor değişimi
+alanlarını taşır; `--samples N` verilirse her öğeye en fazla N kök neden örneği eklenir.
+
+`--compact-json` web arayüzünün payload'ı değildir ve kendi başına kural başına örnek
+sınırı uygulamaz. Web görünümündeki notice listesini CLI full JSON ile yaklaşık eşlemek
+isterseniz `--json --max-notices-per-rule 500` kullanın; gerçek R1/R5/R9 hesapları
+tam notice listesinden yapılır ve kesilen kurallar `capped_totals` içinde bildirilir.
 
 **Exit kodları:** `0` eksiksiz ve notice'sız doğrulama · `1` notice veya `PARTIAL` (kısmi kapsam) raporu · `2` fatal ya da config/dosya hatası. `PARTIAL` rapor, bozuk/eksik bir dosyayı güvenle atlayıp bağımsız kontrolleri sürdürür; JSON'da `status: "partial"`, `validation_status: "PARTIAL"` ve `partial` kapsamı görünür. `partial.skipped_checks`, önkoşul eksikliği nedeniyle çalıştırılmayan K4/K5/K6 kontrol ailelerini ve kurallarını ayrıntılı olarak listeler; `partial.skipped_stages` kaba aşama metadatası için korunur. `--fail-on*` kullanılsa da `PARTIAL` koşusu `1` döner. JSON modunda stdout yalnızca JSON'dur; hatalar stderr'e yazılır.
 
@@ -463,9 +490,18 @@ gtfs-analyzer rules --class spec --severity critical
 gtfs-analyzer rules --rule STM_004 --json --pretty
 ```
 
-Alanlar: `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`.
+Alanlar: `id`, `severity`, `class`, `authority_source`, `base_effort`, `blocks`, `title`, `message`, `remediation`.
 `--class` / `--severity` / `--min-severity` / `--rule` filtreleri `validate` ile aynı anlamdadır.
-`--lang` burada da geçerlidir (kural başlıkları).
+`--lang` burada da geçerlidir (kural başlıkları, mesajları ve düzeltme metinleri).
+
+`--compact-json` içindeki her R9 öğesi de kural başına `severity`, `rule_class`, `message` ve
+`remediation` alanlarını taşır. Büyük feed'lerde isteğe bağlı `--samples N` ile aynı öğeye ilk N
+kök neden bulgusu eklenebilir; mesaj ve çözüm metinleri kural şablonudur, örnek kaydın bağlamı
+`samples` içindedir.
+
+`triggered_rule_count`, R2'de görünen tüm kural kimliklerini sayar; `r9_total_count` ise yalnızca
+kök neden aksiyonlarını sayar. R9 semptomları tekilleştirme için gizler ve gelecekte başlayan
+feed'lerdeki sıfır puanlı `CAL_015` bilgi bildirimi bilinçli olarak aksiyon kuyruğuna alınmaz.
 
 ### Çıktı dili
 
@@ -704,9 +740,12 @@ Büyük feed'lerde aynı kural binlerce satırda tetiklenebilir. Sınırsız bul
 | --- | --- | --- |
 | Kural başına (varsayılan) | 500 | Tüm kurallar |
 | Kural başına (yüksek) | 2.000 | `TRP_020`, `OPR_007`, `STP_016`, `STP_017` |
-| Toplam (tüm kurallar) | 100.000 | Feed geneli — aşılırsa doğrulama durur |
+| Toplam (tüm kurallar) | — | v0.18.0'da feed-geneli 100.000 durdurma sınırı yok |
 
-Yüksek cap listesindeki kurallar gerçek feed'lerde doğal olarak yüksek sayılara ulaşır (örn. her sefer için bir headway kaydı). Sınıra çarpan kurallarda gerçek ihlal sayısı Düzeltme Kuyruğu'nun **Toplam** sütununda görünür; Tüm Bulgular sayfasında kural filtresi seçildiğinde ise sarı bir uyarı satırı gösterilir.
+Bu 500/2.000 sınırları yalnızca tarayıcı/WASM görünümündeki performans örnekleridir; feed-geneli
+100.000'e ulaşınca doğrulamayı durduran bir v0.18.0 kod yolu yoktur. CLI varsayılan olarak sınırsız
+notice üretir; `--json --max-notices-per-rule N` yalnız JSON çıktısında görünür bulguları sınırlar,
+R1/R5/R9 hesaplarını sınırlamaz.
 
 ---
 

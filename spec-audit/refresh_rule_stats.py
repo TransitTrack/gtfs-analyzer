@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Korpus kural istatistiğini TAZELE — 242 feed, tek binary, tek tarih.
+"""REFRESH corpus rule statistics — 242 feeds, one binary, one date.
 
-Neden: `corpus-evidence/rule_stats.csv`'nin VERİSİ 2026-08-06 koşumundandır ve o tarihten
-sonra kural eklendi/değişti. Bayat baseline bu turda İKİ KEZ yanlış sonuca yol açtı:
+Why: the DATA in `corpus-evidence/rule_stats.csv` comes from the 2026-08-06 run, and rules were
+added/changed after that date. The stale baseline produced wrong results TWICE in this round:
 `POST_BASELINE` kovası (10 kural "sessiz" sanıldı, üçü aslında ateşliyordu — `RTS_030`
 23 feed/16.804 bulgu) ve `fatals.csv`'den okunan "ARC_004 ateşledi" sonucu (o fatal yolu
 üç gün sonra kaldırılmıştı).
 
-🔴 **BİR BASELINE'IN DOSYA TARİHİ, VERİSİNİN TARİHİ DEĞİLDİR.** Çıktı bu yüzden koşumun
-tarihini ve binary'nin commit'ini KENDİ İÇİNE yazar.
+🔴 **A BASELINE'S FILE DATE IS NOT THE DATE OF ITS DATA.** Therefore the output records the run
+date and the binary commit INSIDE ITSELF.
 
-`corpus_batch.py`'nin `results/` dizinine DOKUNMAZ (o araç tamamlanmış feed'i atlar ve
-eski koşum kanıt olarak korunmalıdır); bu betik kendi ham çıktısını ayrı tutar.
+Do NOT TOUCH `corpus_batch.py`'s `results/` directory (that tool skips completed feeds and the
+old run must be preserved as evidence); this script keeps its raw output separately.
 
     cargo build --release -p gtfs-analyzer
-    python3 spec-audit/refresh_rule_stats.py            # devam ettirilebilir
-    python3 spec-audit/refresh_rule_stats.py --report   # eski baseline ile FARK
+    python3 spec-audit/refresh_rule_stats.py            # resumable
+    python3 spec-audit/refresh_rule_stats.py --report   # DIFF against the old baseline
 """
 import argparse
 import collections
@@ -31,15 +31,15 @@ EV = os.path.join(ROOT, "spec-audit/corpus-evidence")
 RAW = os.path.join(ROOT, "notgit/corpus/rule_stats_raw.csv")
 OUT = os.path.join(EV, "rule_stats.csv")
 BINARY = os.path.join(ROOT, "target/release/gtfs-analyzer")
-# 🔴 ESKİ BASELINE İLE AYNI GÜN OLMALI. İlk denemem 20260515 ile koştu ve kıyas
-# ANLAMSIZ çıktı: takvime göreli kurallar patladı (CAL_017 +%135490, CAL_008 −%89).
-# Projenin kendi kayıtlı tuzağı — farklı 'bugün'lerle kıyas kural semantiğini değil
-# TARİH FARKINI ölçer.
+# 🔴 MUST USE THE SAME DAY AS THE OLD BASELINE. My first attempt used 20260515 and the comparison
+# was MEANINGLESS: date-relative rules exploded (CAL_017 +%135490, CAL_008 −%89).
+# This project's recorded trap — comparing different 'today' values measures a DATE DIFFERENCE,
+# not rule semantics.
 TODAY = "20260717"
 
-# 🚫 KULLANICI TALİMATI (2026-08-16): `mdb-2904` HİÇBİR ŞEKİLDE KOŞULMAZ.
-# 85 MB, tek başına 5.374.292 bulgu üretiyor ve her toplu koşumu kilitliyor.
-# Bu liste yorum değil KAPIDIR — feed listesinden çıkarılır, atlanma açıkça bildirilir.
+# 🚫 USER INSTRUCTION (2026-08-16): NEVER RUN `mdb-2904`.
+# At 85 MB it produces 5,374,292 findings by itself and locks every batch run.
+# This list is not commentary but a GATE — remove it from the feed list and report the skip explicitly.
 EXCLUDED_FEEDS = {"mdb-2904"}
 
 
@@ -48,7 +48,7 @@ def run_all():
     feeds = sorted(f for f in os.listdir(ZIPS)
                 if f.endswith(".zip") and f[:-4] not in EXCLUDED_FEEDS)
     if EXCLUDED_FEEDS:
-        print(f"atlanan feed (kullanıcı talimatı): {sorted(EXCLUDED_FEEDS)}", flush=True)
+        print(f"skipped feeds (user instruction): {sorted(EXCLUDED_FEEDS)}", flush=True)
     done = set()
     if os.path.exists(RAW):
         with open(RAW) as fh:
@@ -86,7 +86,7 @@ def run_all():
             fh.flush()
             if i % 40 == 0:
                 print(f"{i}/{len(feeds)}", flush=True)
-    print("ham çıktı yazıldı:", RAW)
+    print("raw output written:", RAW)
 
 
 def aggregate():
@@ -137,21 +137,21 @@ def report():
 
     gained = sorted(set(new) - set(old))
     lost = sorted(set(old) - set(new))
-    print(f"taze koşum: {feeds_total} feed · tetiklenen kural {len(new)} "
-          f"(eski baseline {len(old)})")
-    print(f"\nYENİ ateşleyen ({len(gained)}):")
+    print(f"fresh run: {feeds_total} feeds · triggered rules {len(new)} "
+          f"(old baseline {len(old)})")
+    print(f"\nNEWLY firing ({len(gained)}):")
     for r in gained:
-        print(f"  {r:8} {new[r]['feeds_triggered']:>3} feed / {new[r]['total_notices']:>7} bulgu")
-    print(f"\nARTIK ateşlemeyen ({len(lost)}):")
+        print(f"  {r:8} {new[r]['feeds_triggered']:>3} feeds / {new[r]['total_notices']:>7} findings")
+    print(f"\nNO LONGER firing ({len(lost)}):")
     for r in lost:
-        print(f"  {r:8} (eski: {old[r]['feeds_triggered']} feed / {old[r]['total_notices']} bulgu)")
+        print(f"  {r:8} (old: {old[r]['feeds_triggered']} feeds / {old[r]['total_notices']} findings)")
 
     moved = []
     for rid in sorted(set(new) & set(old)):
         a, b = int(old[rid]["total_notices"]), new[rid]["total_notices"]
         if a and abs(b - a) / a > 0.2:
             moved.append((rid, a, b))
-    print(f"\nHACMİ %20'den ÇOK değişen ({len(moved)}):")
+    print(f"\nCHANGED BY MORE THAN 20% ({len(moved)}):")
     for rid, a, b in sorted(moved, key=lambda x: -abs(x[2] - x[1]))[:15]:
         print(f"  {rid:8} {a:>8} → {b:<8} ({(b-a)/a*100:+.0f}%)")
 
@@ -162,7 +162,7 @@ def write_out():
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
-    print("yazıldı:", OUT)
+    print("written:", OUT)
 
 
 if __name__ == "__main__":
@@ -176,6 +176,6 @@ if __name__ == "__main__":
         write_out()
     else:
         if not os.path.exists(BINARY):
-            sys.exit("release binary yok: cargo build --release -p gtfs-analyzer")
+            sys.exit("release binary not found: cargo build --release -p gtfs-analyzer")
         run_all()
     sys.exit(0)

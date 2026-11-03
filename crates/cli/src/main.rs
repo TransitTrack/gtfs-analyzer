@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -6,10 +7,10 @@ use chrono::{Datelike, Local};
 use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use gtfs_config::{merge_delta, GtfsJpProfile, ValidatorConfig};
 use gtfs_core::{
-    AuthoritySource, NameIndex, Notice, RuleClass, Severity, ValidateResult, ValidationResult,
+    AuthoritySource, Notice, RuleClass, Severity, ValidateResult, ValidationResult,
     ValidationStatus,
 };
-use gtfs_pipeline::validate_bytes;
+use gtfs_pipeline::{validate_bytes, validate_bytes_without_name_index};
 use gtfs_rules::RULES;
 use serde::Serialize;
 
@@ -120,6 +121,16 @@ struct ValidateArgs {
     /// Omitted by default: on large feeds it dominates the payload.
     #[arg(long, requires = "json")]
     include_name_index: bool,
+
+    /// Keep at most this many notices per rule in the JSON output (the web UI uses 500).
+    /// Scores and the publishability verdict are still computed over every notice;
+    /// real counts of truncated rules are reported in capped_totals.
+    #[arg(long, requires = "json", value_parser = clap::value_parser!(u32).range(1..))]
+    max_notices_per_rule: Option<u32>,
+
+    /// Include the first N root-cause findings for every R9 item in compact JSON.
+    #[arg(long, requires = "compact_json", value_parser = clap::value_parser!(u32).range(1..))]
+    samples: Option<u32>,
 
     /// Write the output to this file instead of stdout.
     #[arg(long, short = 'o')]
@@ -378,7 +389,11 @@ fn run_validate(args: ValidateArgs) -> ExitCode {
     suppress_pipeline_timing_by_default();
 
     let today = args.today.unwrap_or_else(today_yyyymmdd);
-    let mut result = validate_bytes(&zip_bytes, &config, today);
+    let mut result = if args.include_name_index {
+        validate_bytes(&zip_bytes, &config, today)
+    } else {
+        validate_bytes_without_name_index(&zip_bytes, &config, today)
+    };
 
     let filters = Filters {
         rule: args.rule.clone(),
@@ -387,6 +402,9 @@ fn run_validate(args: ValidateArgs) -> ExitCode {
         classes: args.class.iter().copied().map(Into::into).collect(),
     };
     apply_filters(&mut result, &filters);
+    if let (Some(cap), ValidateResult::Ok(vr)) = (args.max_notices_per_rule, &mut result) {
+        cap_notices_per_rule(vr, cap);
+    }
 
     // After filtering: no point translating notices that were dropped.
     if let (Some(translator), ValidateResult::Fatal(err)) = (&translator, &mut result) {
@@ -398,21 +416,26 @@ fn run_validate(args: ValidateArgs) -> ExitCode {
         }
     }
 
-    if !args.include_name_index {
-        if let ValidateResult::Ok(vr) = &mut result {
-            vr.name_index = NameIndex::default();
+    if args.json && !args.compact_json {
+        if let Err(err) = write_json_result(&result, &filters, args.pretty, args.output.as_deref()) {
+            return cli_error(err);
         }
+        return exit_code(
+            &result,
+            args.fail_on.map(Into::into),
+            &args
+                .fail_on_class
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect::<Vec<RuleClass>>(),
+        );
     }
 
     let rendered = if args.compact_json {
-        match render_compact_json(&result, &config, today, args.lang, args.pretty) {
+        match render_compact_json(&result, &config, today, args.lang, args.pretty, args.samples) {
             Ok(json) => json,
             Err(err) => return cli_error(err),
-        }
-    } else if args.json {
-        match render_json(&result, &filters, args.pretty) {
-            Ok(json) => json,
-            Err(err) => return cli_error(format!("failed to serialize result as JSON: {err}")),
         }
     } else {
         render_summary(&result, &filters)
@@ -469,7 +492,7 @@ fn apply_filters(result: &mut ValidateResult, filters: &Filters) {
         return;
     }
 
-    vr.notices.retain(|notice| filters.matches(notice));
+    retain_notices(vr, |notice| filters.matches(notice));
     prune_reports(vr);
 }
 
@@ -513,6 +536,76 @@ fn prune_reports(vr: &mut ValidationResult) {
         .r9
         .items
         .retain(|item| !item.notice_ids.is_empty());
+}
+
+/// Drops notices and keeps `agency_breakdown` consistent with the shorter array:
+/// `agency_notice_indices` are positions in `notices`, so they are renumbered, and
+/// `displayed_sample_count` is recounted over the notices actually carried.
+fn retain_notices(vr: &mut ValidationResult, mut keep: impl FnMut(&Notice) -> bool) {
+    let mut new_index: Vec<Option<u32>> = Vec::with_capacity(vr.notices.len());
+    let mut next = 0u32;
+    for notice in &vr.notices {
+        if keep(notice) {
+            new_index.push(Some(next));
+            next += 1;
+        } else {
+            new_index.push(None);
+        }
+    }
+    let mut position = 0;
+    vr.notices.retain(|_| {
+        position += 1;
+        new_index[position - 1].is_some()
+    });
+
+    let breakdown = &mut vr.agency_breakdown;
+    for indices in &mut breakdown.agency_notice_indices {
+        *indices = indices
+            .iter()
+            .filter_map(|&old| new_index.get(old as usize).copied().flatten())
+            .collect();
+    }
+    for counts in breakdown.rules.values_mut() {
+        counts.displayed_sample_count = 0;
+    }
+    for notice in &vr.notices {
+        if let Some(counts) = breakdown.rules.get_mut(&notice.rule_id) {
+            counts.displayed_sample_count += 1;
+        }
+    }
+}
+
+/// Keeps the first `cap` notices of each rule (canonical K7 order) and records the
+/// real count of every truncated rule in `capped_totals`, as the web UI does.
+///
+/// Unlike the WASM path, the cap runs after K7: R1/R5/R9 verdicts and deltas stay
+/// those of the full notice list. Report rows and id lists are trimmed to the kept
+/// notices; R9 `affected_instance_count` keeps the real figure.
+fn cap_notices_per_rule(vr: &mut ValidationResult, cap: u32) {
+    let mut seen: BTreeMap<String, u32> = BTreeMap::new();
+    retain_notices(vr, |notice| {
+        let count = seen.entry(notice.rule_id.clone()).or_insert(0);
+        *count += 1;
+        *count <= cap
+    });
+    for (rule_id, total) in seen {
+        if total > cap {
+            let entry = vr.capped_totals.entry(rule_id).or_insert(0);
+            *entry = (*entry).max(total);
+        }
+    }
+
+    let kept: HashSet<&str> = vr.notices.iter().map(|notice| notice.id.as_str()).collect();
+    let reports = &mut vr.reports;
+    reports.r1.blocker_notice_ids.retain(|id| kept.contains(id.as_str()));
+    reports.r2.items.retain(|item| kept.contains(item.notice_id.as_str()));
+    reports.r3.items.retain(|item| kept.contains(item.notice_id.as_str()));
+    reports.r4.items.retain(|item| kept.contains(item.notice_id.as_str()));
+    reports.r7.items.retain(|item| kept.contains(item.notice_id.as_str()));
+    reports.r8.items.retain(|item| kept.contains(item.notice_id.as_str()));
+    for item in &mut reports.r9.items {
+        item.notice_ids.retain(|id| kept.contains(id.as_str()));
+    }
 }
 
 // ── output ────────────────────────────────────────────────────────────────────
@@ -589,6 +682,10 @@ struct CompactR9 {
 struct CompactR9Item {
     rule_id: String,
     title: String,
+    severity: &'static str,
+    rule_class: &'static str,
+    message: String,
+    remediation: String,
     labels: Vec<gtfs_core::R9Label>,
     priority_score: f64,
     score_delta: f64,
@@ -597,6 +694,19 @@ struct CompactR9Item {
     realized_dependent_count: u32,
     base_effort: u8,
     fix_effort: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    samples: Option<Vec<CompactR9Sample>>,
+}
+
+#[derive(Serialize)]
+struct CompactR9Sample {
+    entity_type: gtfs_core::EntityType,
+    entity_id: Option<String>,
+    file: Option<String>,
+    line: Option<u64>,
+    field: Option<String>,
+    observed_value: Option<String>,
+    expected_value: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -633,32 +743,69 @@ fn filter_meta(filters: &Filters) -> Option<FilterMeta> {
     })
 }
 
-fn render_json(
+fn write_json_result(
     result: &ValidateResult,
     filters: &Filters,
     pretty: bool,
-) -> Result<String, serde_json::Error> {
-    match result {
-        ValidateResult::Fatal(err) => {
-            let payload = JsonFatal {
-                status: "fatal",
-                code: &err.code,
-                message: &err.message,
-                params: &err.params,
-            };
-            serialize(&payload, pretty)
-        }
-        ValidateResult::Ok(vr) => {
-            let payload = JsonOk {
-                status: if vr.status == ValidationStatus::Partial {
-                    "partial"
+    path: Option<&Path>,
+) -> Result<(), String> {
+    fn write_payload<W: Write>(
+        writer: &mut W,
+        result: &ValidateResult,
+        filters: &Filters,
+        pretty: bool,
+    ) -> Result<(), String> {
+        match result {
+            ValidateResult::Fatal(err) => {
+                let payload = JsonFatal {
+                    status: "fatal",
+                    code: &err.code,
+                    message: &err.message,
+                    params: &err.params,
+                };
+                if pretty {
+                    serde_json::to_writer_pretty(writer, &payload)
                 } else {
-                    "ok"
-                },
-                filtered: filter_meta(filters),
-                result: vr,
-            };
-            serialize(&payload, pretty)
+                    serde_json::to_writer(writer, &payload)
+                }
+            }
+            ValidateResult::Ok(vr) => {
+                let payload = JsonOk {
+                    status: if vr.status == ValidationStatus::Partial {
+                        "partial"
+                    } else {
+                        "ok"
+                    },
+                    filtered: filter_meta(filters),
+                    result: vr,
+                };
+                if pretty {
+                    serde_json::to_writer_pretty(writer, &payload)
+                } else {
+                    serde_json::to_writer(writer, &payload)
+                }
+            }
+        }
+        .map_err(|err| format!("failed to serialize result as JSON: {err}"))
+    }
+
+    match path {
+        Some(path) => {
+            let file = std::fs::File::create(path)
+                .map_err(|err| format!("failed to write '{}': {err}", path.display()))?;
+            let mut writer = std::io::BufWriter::new(file);
+            write_payload(&mut writer, result, filters, pretty)?;
+            writer
+                .flush()
+                .map_err(|err| format!("failed to write '{}': {err}", path.display()))
+        }
+        None => {
+            let stdout = std::io::stdout();
+            let mut writer = std::io::BufWriter::new(stdout.lock());
+            write_payload(&mut writer, result, filters, pretty)?;
+            writer
+                .flush()
+                .map_err(|err| format!("failed to write JSON to stdout: {err}"))
         }
     }
 }
@@ -669,6 +816,7 @@ fn render_compact_json(
     today: u32,
     lang: LangArg,
     pretty: bool,
+    samples: Option<u32>,
 ) -> Result<String, String> {
     match result {
         ValidateResult::Fatal(err) => {
@@ -681,7 +829,7 @@ fn render_compact_json(
             serialize(&payload, pretty).map_err(|err| format!("failed to serialize compact result as JSON: {err}"))
         }
         ValidateResult::Ok(vr) => {
-            let reports = compact_reports(vr, lang.into())?;
+            let reports = compact_reports(vr, lang.into(), samples)?;
             let mut effective_config = serde_json::to_value(config)
                 .map_err(|err| format!("failed to serialize effective config: {err}"))?;
             if let Some(object) = effective_config.as_object_mut() {
@@ -723,7 +871,11 @@ fn render_compact_json(
     }
 }
 
-fn compact_reports(vr: &ValidationResult, lang: gtfs_core::i18n::Lang) -> Result<CompactReports, String> {
+fn compact_reports(
+    vr: &ValidationResult,
+    lang: gtfs_core::i18n::Lang,
+    samples: Option<u32>,
+) -> Result<CompactReports, String> {
     let notice_by_id: BTreeMap<&str, &Notice> = vr
         .notices
         .iter()
@@ -742,23 +894,71 @@ fn compact_reports(vr: &ValidationResult, lang: gtfs_core::i18n::Lang) -> Result
 
     let translator = Translator::new(lang)
         .map_err(|err| format!("failed to load compact result translator: {err}"))?;
+    // Turkish is emitted natively for concrete notices, but the registry has no
+    // Turkish message/remediation dictionary because it has no context-free
+    // templates. Keep the compact rule-level contract populated by using the
+    // canonical English catalog for that one case.
+    let english_catalog = if translator.is_none() {
+        Translator::new(gtfs_core::i18n::Lang::En)
+            .map_err(|err| format!("failed to load compact English catalog: {err}"))?
+    } else {
+        None
+    };
+    let catalog = translator.as_ref().or(english_catalog.as_ref());
     let items = vr
         .reports
         .r9
         .items
         .iter()
         .map(|item| {
-            let title = RULES
+            let rule = RULES
                 .iter()
                 .find(|rule| rule.id == item.rule_id)
-                .map(|rule| match &translator {
-                    Some(translator) => translator.rule_title(rule.id, rule.title),
-                    None => rule.title,
-                })
                 .ok_or_else(|| format!("compact R9 projection failed: unknown rule id '{}'", item.rule_id))?;
+            let title = translator
+                .as_ref()
+                .map(|translator| translator.rule_title(rule.id, rule.title))
+                .unwrap_or(rule.title)
+                .to_owned();
+            let message = catalog
+                .and_then(|catalog| catalog.rule_message(rule.id))
+                .unwrap_or("")
+                .to_owned();
+            let remediation = catalog
+                .and_then(|catalog| catalog.rule_remediation(rule.id))
+                .unwrap_or("")
+                .to_owned();
+            let samples = samples
+                .map(|limit| {
+                    item.notice_ids
+                        .iter()
+                        .take(limit as usize)
+                        .map(|notice_id| {
+                            let notice = notice_by_id.get(notice_id.as_str()).ok_or_else(|| {
+                                format!(
+                                    "compact R9 projection failed: unresolved sample notice id '{notice_id}'"
+                                )
+                            })?;
+                            Ok(CompactR9Sample {
+                                entity_type: notice.entity_type,
+                                entity_id: notice.entity_id.clone(),
+                                file: notice.file.clone(),
+                                line: notice.line,
+                                field: notice.field.clone(),
+                                observed_value: notice.observed_value.clone(),
+                                expected_value: notice.expected_value.clone(),
+                            })
+                        })
+                        .collect::<Result<Vec<_>, String>>()
+                })
+                .transpose()?;
             Ok(CompactR9Item {
                 rule_id: item.rule_id.clone(),
-                title: title.to_string(),
+                title,
+                severity: severity_str(rule.severity),
+                rule_class: class_str(rule.rule_class),
+                message,
+                remediation,
                 labels: item.labels.clone(),
                 priority_score: item.priority_score,
                 score_delta: item.score_delta,
@@ -767,6 +967,7 @@ fn compact_reports(vr: &ValidationResult, lang: gtfs_core::i18n::Lang) -> Result
                 realized_dependent_count: item.realized_dependent_count,
                 base_effort: item.base_effort,
                 fix_effort: item.fix_effort,
+                samples,
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
@@ -943,6 +1144,8 @@ struct RuleRow<'a> {
     base_effort: u8,
     blocks: &'static [&'static str],
     title: &'a str,
+    message: String,
+    remediation: String,
 }
 
 fn run_rules(args: RulesArgs) -> ExitCode {
@@ -954,6 +1157,15 @@ fn run_rules(args: RulesArgs) -> ExitCode {
         Ok(translator) => translator,
         Err(err) => return cli_error(err),
     };
+    let english_catalog = if translator.is_none() {
+        match Translator::new(gtfs_core::i18n::Lang::En) {
+            Ok(catalog) => catalog,
+            Err(err) => return cli_error(err),
+        }
+    } else {
+        None
+    };
+    let catalog = translator.as_ref().or(english_catalog.as_ref());
 
     let rows: Vec<RuleRow> = RULES
         .iter()
@@ -974,6 +1186,14 @@ fn run_rules(args: RulesArgs) -> ExitCode {
                 Some(translator) => translator.rule_title(meta.id, meta.title),
                 None => meta.title,
             },
+            message: catalog
+                .and_then(|catalog| catalog.rule_message(meta.id))
+                .unwrap_or("")
+                .to_owned(),
+            remediation: catalog
+                .and_then(|catalog| catalog.rule_remediation(meta.id))
+                .unwrap_or("")
+                .to_owned(),
         })
         .collect();
 

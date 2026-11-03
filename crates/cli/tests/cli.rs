@@ -69,6 +69,12 @@ fn write_feed(name: &str, files: &[(&str, &[u8])]) -> PathBuf {
     path
 }
 
+fn write_config(name: &str, json: &str) -> PathBuf {
+    let path = std::env::temp_dir().join(format!("gtfs-cli-test-config-{name}.json"));
+    std::fs::write(&path, json).unwrap();
+    path
+}
+
 fn feed_ok() -> PathBuf {
     write_feed("ok", &base_files(TRIPS))
 }
@@ -83,6 +89,18 @@ fn feed_partial() -> PathBuf {
         .filter(|(name, _)| *name != "routes.txt")
         .collect();
     write_feed("partial", &files)
+}
+
+fn feed_wrapped() -> PathBuf {
+    let files = [
+        ("bundle/agency.txt", AGENCY),
+        ("bundle/stops.txt", STOPS),
+        ("bundle/routes.txt", ROUTES),
+        ("bundle/trips.txt", TRIPS),
+        ("bundle/stop_times.txt", STOP_TIMES),
+        ("bundle/calendar.txt", CALENDAR),
+    ];
+    write_feed("wrapped", &files)
 }
 
 // ── invocation helpers ────────────────────────────────────────────────────────
@@ -102,6 +120,10 @@ fn validate(feed: &Path, extra: &[&str]) -> Output {
 
 fn stdout_of(out: &Output) -> String {
     String::from_utf8(out.stdout.clone()).unwrap()
+}
+
+fn stderr_of(out: &Output) -> String {
+    String::from_utf8(out.stderr.clone()).unwrap()
 }
 
 fn json_of(out: &Output) -> serde_json::Value {
@@ -199,9 +221,72 @@ fn corrupt_zip_is_fatal_with_exit_2() {
     assert_eq!(json_of(&out)["status"], "fatal");
 }
 
-/// Fatal mesajı pipeline'ın Türkçe metniydi ve `--lang` onu hiç çevirmiyordu: İngilizce
-/// kullanıcı "ZIP arşivi açılamadı" görüyordu. Artık bildirimlerle aynı modelde
-/// şablondan yazılır; kütüphanenin teknik ayrıntısı `{detail}` olarak korunur.
+#[test]
+fn unknown_config_key_is_english_with_lang_en() {
+    let config = write_config("unknown", r#"{"bogus_key":true}"#);
+    let feed = feed_ok();
+    let out = run(&[
+        "validate",
+        feed.to_str().unwrap(),
+        "--today",
+        TODAY,
+        "--lang",
+        "en",
+        "--config",
+        config.to_str().unwrap(),
+    ]);
+    assert_eq!(code(&out), 2);
+    assert_eq!(
+        stderr_of(&out),
+        format!(
+            "error: invalid config '{}': Unknown config keys: bogus_key\n",
+            config.display()
+        )
+    );
+}
+
+#[test]
+fn out_of_range_config_value_is_english_with_lang_en() {
+    let config = write_config("range", r#"{"max_speed_bus_kmh":99999}"#);
+    let feed = feed_ok();
+    let out = run(&[
+        "validate",
+        feed.to_str().unwrap(),
+        "--today",
+        TODAY,
+        "--lang",
+        "en",
+        "--config",
+        config.to_str().unwrap(),
+    ]);
+    assert_eq!(code(&out), 2);
+    assert_eq!(
+        stderr_of(&out),
+        format!(
+            "error: invalid config '{}': 'max_speed_bus_kmh' out of range: 99999 (expected 60-200)\n",
+            config.display()
+        )
+    );
+}
+
+#[test]
+fn wrapped_feed_partial_root_error_is_english_with_lang_en() {
+    let json = json_of(&validate(&feed_wrapped(), &["--json", "--lang", "en"]));
+    assert_eq!(json["status"], "partial");
+    let errors = json["partial"]["root_structural_errors"]
+        .as_array()
+        .unwrap();
+    assert!(errors
+        .iter()
+        .any(|error| { error == "GTFS files are not at the ZIP root; root prefix is 'bundle/'" }));
+    assert!(errors
+        .iter()
+        .all(|error| { !error.as_str().unwrap().contains("GTFS dosyaları") }));
+}
+
+/// The fatal message used to be Turkish pipeline text and `--lang` did not translate it: an English
+/// user saw "ZIP arşivi açılamadı". It is now rendered from a template using the same model as
+/// notices; the library's technical detail is preserved as `{detail}`.
 #[test]
 fn fatal_message_follows_the_requested_language() {
     let path = std::env::temp_dir().join("gtfs-cli-test-corrupt-lang.zip");
@@ -345,6 +430,47 @@ fn compact_json_projects_canonical_summary_without_notice_payload() {
     for (key, expected) in expected_counts {
         assert_eq!(json["notice_counts"][key], expected);
     }
+}
+
+#[test]
+fn compact_json_adds_r9_rule_metadata_and_optional_samples() {
+    let json = json_of(&validate(
+        &feed_with_critical(),
+        &["--compact-json", "--lang", "en", "--samples", "1"],
+    ));
+    let item = json["reports"]["r9"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["rule_id"] == "TRP_002")
+        .expect("fixture must produce a TRP_002 R9 item");
+
+    assert_eq!(item["severity"], "CRITICAL");
+    assert_eq!(item["rule_class"], "SPEC");
+    assert!(!item["message"].as_str().unwrap().is_empty());
+    assert!(!item["remediation"].as_str().unwrap().is_empty());
+    let sample = &item["samples"][0];
+    for field in [
+        "entity_type",
+        "entity_id",
+        "file",
+        "line",
+        "field",
+        "observed_value",
+        "expected_value",
+    ] {
+        assert!(sample.get(field).is_some(), "missing sample field {field}");
+    }
+    assert_eq!(sample["entity_type"], "Trip");
+    assert_eq!(sample["entity_id"], "T1");
+    assert_eq!(sample["file"], "trips.txt");
+}
+
+#[test]
+fn compact_json_omits_samples_without_the_samples_flag() {
+    let json = json_of(&validate(&feed_with_critical(), &["--compact-json"]));
+    let item = &json["reports"]["r9"]["items"][0];
+    assert!(item.get("samples").is_none());
 }
 
 #[test]
@@ -636,6 +762,15 @@ fn rules_lists_the_whole_registry() {
 }
 
 #[test]
+fn rules_json_includes_rule_message_and_remediation() {
+    let out = run(&["rules", "--json", "--rule", "TRP_002"]);
+    let row = &json_of(&out)[0];
+    assert_eq!(row["id"], "TRP_002");
+    assert!(!row["message"].as_str().unwrap().is_empty());
+    assert!(!row["remediation"].as_str().unwrap().is_empty());
+}
+
+#[test]
 fn rules_filters_by_class_and_severity() {
     let out = run(&[
         "rules",
@@ -797,4 +932,116 @@ fn lang_fr_translates_and_never_leaks_turkish_or_placeholders() {
 fn unknown_lang_is_rejected() {
     let out = validate(&feed_ok(), &["--lang", "de"]);
     assert_eq!(code(&out), 2);
+}
+
+// ── --max-notices-per-rule ────────────────────────────────────────────────────
+
+/// Notice ids each agency points at through `agency_breakdown.notice_indices`.
+fn agency_notice_ids(json: &serde_json::Value) -> Vec<(String, Vec<String>)> {
+    let notices = json["notices"].as_array().unwrap();
+    json["agency_breakdown"]["agencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|agency| {
+            let ids = agency["notice_indices"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|i| notices[i.as_u64().unwrap() as usize]["id"].as_str().unwrap().to_owned())
+                .collect();
+            (agency["agency_id"].as_str().unwrap().to_owned(), ids)
+        })
+        .collect()
+}
+
+#[test]
+fn max_notices_per_rule_caps_output_but_keeps_full_verdicts() {
+    let feed = feed_with_critical();
+    let full = json_of(&validate(&feed, &["--json"]));
+    let capped = json_of(&validate(&feed, &["--json", "--max-notices-per-rule", "1"]));
+
+    let count = |json: &serde_json::Value, rule: &str| {
+        json["notices"].as_array().unwrap().iter().filter(|n| n["rule_id"] == rule).count()
+    };
+    assert_eq!(count(&full, "ARC_011"), 6, "fixture must fire ARC_011 more than once");
+    assert_eq!(count(&capped, "ARC_011"), 1);
+    assert_eq!(capped["capped_totals"]["ARC_011"], 6);
+
+    // Verdicts are computed before the cap.
+    assert_eq!(capped["reports"]["r5"], full["reports"]["r5"]);
+    assert_eq!(capped["reports"]["r1"]["publishable"], false);
+    assert_eq!(capped["reports"]["r9"]["items"].as_array().unwrap().len(),
+               full["reports"]["r9"]["items"].as_array().unwrap().len());
+    for (a, b) in capped["reports"]["r9"]["items"].as_array().unwrap().iter()
+        .zip(full["reports"]["r9"]["items"].as_array().unwrap())
+    {
+        assert_eq!(a["rule_id"], b["rule_id"]);
+        assert_eq!(a["score_delta"], b["score_delta"]);
+        assert_eq!(a["affected_instance_count"], b["affected_instance_count"]);
+    }
+
+    // Every id the output refers to resolves to a carried notice.
+    let ids: std::collections::HashSet<&str> = capped["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    for id in capped["reports"]["r1"]["blocker_notice_ids"].as_array().unwrap() {
+        assert!(ids.contains(id.as_str().unwrap()));
+    }
+    for report in ["r2", "r3", "r4", "r7", "r8"] {
+        for item in capped["reports"][report]["items"].as_array().unwrap() {
+            assert!(ids.contains(item["notice_id"].as_str().unwrap()), "{report} dangling id");
+        }
+    }
+
+    // Agency indices point at the same notices as in the full output.
+    let full_by_agency = agency_notice_ids(&full);
+    for (agency, kept) in agency_notice_ids(&capped) {
+        let expected: Vec<String> = full_by_agency
+            .iter()
+            .find(|(a, _)| *a == agency)
+            .unwrap()
+            .1
+            .iter()
+            .filter(|id| ids.contains(id.as_str()))
+            .cloned()
+            .collect();
+        assert_eq!(kept, expected, "agency {agency}");
+    }
+}
+
+#[test]
+fn max_notices_per_rule_requires_json_and_a_positive_value() {
+    let feed = feed_ok();
+    assert_eq!(code(&validate(&feed, &["--max-notices-per-rule", "5"])), 2);
+    assert_eq!(code(&validate(&feed, &["--json", "--max-notices-per-rule", "0"])), 2);
+}
+
+#[test]
+fn rule_filter_renumbers_agency_notice_indices() {
+    let feed = feed_with_critical();
+    let full = json_of(&validate(&feed, &["--json"]));
+    let filtered = json_of(&validate(&feed, &["--json", "--rule", "ARC_011"]));
+    let ids: std::collections::HashSet<String> = filtered["notices"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_owned())
+        .collect();
+    let full_by_agency = agency_notice_ids(&full);
+    for (agency, kept) in agency_notice_ids(&filtered) {
+        let expected: Vec<String> = full_by_agency
+            .iter()
+            .find(|(a, _)| *a == agency)
+            .unwrap()
+            .1
+            .iter()
+            .filter(|id| ids.contains(*id))
+            .cloned()
+            .collect();
+        assert_eq!(kept, expected, "agency {agency}");
+    }
 }

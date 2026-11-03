@@ -4,8 +4,8 @@ import type { ValidateResult, ValidationResult, FatalError, FileInfo } from './t
 
 export type { CachedState };
 
-// İki WASM paketi de AYNI API'yi dışa verir; yalnızca threaded paket ek `initThreadPool` taşır.
-// Seri paket = pkg/ (stable, tek thread). Threaded paket = pkg-threads/ (nightly+atomics, rayon).
+// Both WASM packages export the SAME API; only the threaded package also exposes `initThreadPool`.
+// Serial package = pkg/ (stable, one thread). Threaded package = pkg-threads/ (nightly+atomics, rayon).
 type SerialModule = typeof import('../pkg/gtfs_wasm');
 type DeterministicModule = SerialModule & {
   prepare_with_today: (
@@ -45,12 +45,12 @@ function assertInputLimit(zip: Uint8Array): void {
   }
 }
 
-/** Doğrulamanın gerçek thread'lerle mi (paralel K6) yoksa seri mi çalıştığını döner. */
+/** Return whether validation runs with real threads (parallel K6) or serially. */
 export function isThreaded(): boolean {
   return usingThreads;
 }
 
-/** Memory64 paketinin gerçekten seçili olup olmadığını döner. */
+/** Return whether the Memory64 package is actually selected. */
 export function isMemory64(): boolean {
   return usingMemory64;
 }
@@ -73,8 +73,8 @@ function supportsMemory64(): boolean {
 export async function initWasm(forceSerial = false, forceMemory64 = false, forceWasm32 = false): Promise<void> {
   if (ready) return;
 
-  // Memory64 destekleyen tarayıcıda varsayılan motor budur. Paket yüklenemezse
-  // uygulama kullanılabilir kalmak için aşağıdaki wasm32 yoluna döner.
+  // This is the default engine in a browser that supports Memory64. If the package
+  // cannot be loaded, fall back to the wasm32 path below so the app remains usable.
   if (!forceWasm32 && (forceMemory64 || supportsMemory64())) {
     try {
       const m64 = await import('../pkg64/gtfs_wasm') as Memory64Module;
@@ -86,15 +86,15 @@ export async function initWasm(forceSerial = false, forceMemory64 = false, force
       console.info('[WASM] wasm64 serial mode');
       return;
     } catch (err) {
-      console.warn('[WASM] wasm64 init başarısız → wasm32 fallback', err);
+      console.warn('[WASM] wasm64 init failed → wasm32 fallback', err);
     }
   }
 
-  // Gerçek thread'ler yalnızca crossOriginIsolated + SharedArrayBuffer varken kurulur.
-  // GitHub Pages'te bunu coi-serviceworker, dev/preview'de vite COOP/COEP başlıkları sağlar.
-  // Yoksa SERİ paket yüklenir → çıktı birebir aynı (yalnızca yavaş). Bu, sistemin
-  // her koşulda çalışmasını garanti eden geri-dönüş (fallback) yoludur.
-  // forceSerial: A/B ölçümü/hata-ayıklama için thread'leri kapatır (sayfa ?serial=1).
+  // Real threads are enabled only when crossOriginIsolated + SharedArrayBuffer are available.
+  // On GitHub Pages, coi-serviceworker provides this; Vite COOP/COEP headers do so in dev/preview.
+  // Otherwise load the SERIAL package → output is byte-for-byte identical (only slower). This
+  // fallback guarantees that the system works under all conditions.
+  // forceSerial: disables threads for A/B measurement/debugging (page ?serial=1).
   const isolated = (globalThis as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated === true;
   const canThread = !forceSerial && typeof SharedArrayBuffer !== 'undefined' && isolated;
 
@@ -108,9 +108,9 @@ export async function initWasm(forceSerial = false, forceMemory64 = false, force
       mod = t;
       usingThreads = true;
       usingMemory64 = false;
-      console.info(`[WASM] threaded mode (${n} iş parçacığı)`);
+      console.info(`[WASM] threaded mode (${n} threads)`);
     } catch (err) {
-      console.warn('[WASM] threaded init başarısız → seri fallback', err);
+      console.warn('[WASM] threaded init failed → serial fallback', err);
       mod = null;
     }
   }
@@ -121,13 +121,13 @@ export async function initWasm(forceSerial = false, forceMemory64 = false, force
     mod = s;
     usingThreads = false;
     usingMemory64 = false;
-    console.info(canThread ? '[WASM] seri mod (threaded yüklenemedi)' : '[WASM] seri mod (cross-origin isolated değil)');
+    console.info(canThread ? '[WASM] serial mode (threaded build failed to load)' : '[WASM] serial mode (not cross-origin isolated)');
   }
   ready = true;
 }
 
 function loaded(): DeterministicModule {
-  if (!mod) throw new Error('WASM başlatılmadı (önce initWasm çağrılmalı).');
+  if (!mod) throw new Error('WASM is not initialized (call initWasm first).');
   return mod;
 }
 
@@ -146,7 +146,7 @@ export function listZipFiles(zip: Uint8Array): Array<{ name: string; uncompresse
   try {
     return JSON.parse(loaded().list_zip_files(zip)) as Array<{ name: string; uncompressed_size: number }>;
   } catch (err) {
-    console.error('[WASM] listZipFiles başarısız:', err);
+    console.error('[WASM] listZipFiles failed:', err);
     return [];
   }
 }
@@ -159,7 +159,7 @@ export function getCachedFileStats(cache: CachedState): FileInfo[] {
   }
 }
 
-// Büyük feed modunda tek shape'in [[lat, lon]] noktalarını on-demand çeker.
+// In large-feed mode, fetch one shape's [[lat, lon]] points on demand.
 export function shapeCoordsOf(cache: CachedState, shapeId: string): [number, number][] {
   try {
     return JSON.parse(loaded().shape_coords_of(cache, shapeId)) as [number, number][];
@@ -177,12 +177,15 @@ export function runPrepare(zip: Uint8Array, configDelta: string, onStage: (name:
     const raw = typeof thrown === 'string' ? thrown : String(thrown);
     const parsed = tryParseJson<ValidateResult>(raw);
     if (parsed && 'Fatal' in parsed) throw parsed.Fatal;
-    // WASM çökmesi (OOM / unreachable / RuntimeError) → kullanıcı dostu mesaj
-    const isWasmCrash = /unreachable|RuntimeError|out of memory|memory access/i.test(raw);
-    const message = isWasmCrash
-      ? `Feed tarayıcı için çok büyük — WASM bellek yetersiz. Daha küçük bir feed deneyin. (${raw})`
-      : raw;
-    throw { code: 'ZipUnreadable', message } satisfies FatalError;
+    // WASM crash (OOM / unreachable / RuntimeError) → user-friendly message
+    if (/unreachable|RuntimeError|out of memory|memory access/i.test(raw)) {
+      throw {
+        code: 'ResourceLimit',
+        message: `The feed is too large for the browser: WASM ran out of memory. Try a smaller feed. (${raw})`,
+        params: { variant: 'browser_memory', detail: raw },
+      } satisfies FatalError;
+    }
+    throw { code: 'ZipUnreadable', message: raw } satisfies FatalError;
   }
 }
 
@@ -200,11 +203,14 @@ export function runPrepareWithToday(
     const raw = typeof thrown === 'string' ? thrown : String(thrown);
     const parsed = tryParseJson<ValidateResult>(raw);
     if (parsed && 'Fatal' in parsed) throw parsed.Fatal;
-    const isWasmCrash = /unreachable|RuntimeError|out of memory|memory access/i.test(raw);
-    const message = isWasmCrash
-      ? `Feed tarayıcı için çok büyük — WASM bellek yetersiz. Daha küçük bir feed deneyin. (${raw})`
-      : raw;
-    throw { code: 'ZipUnreadable', message } satisfies FatalError;
+    if (/unreachable|RuntimeError|out of memory|memory access/i.test(raw)) {
+      throw {
+        code: 'ResourceLimit',
+        message: `The feed is too large for the browser: WASM ran out of memory. Try a smaller feed. (${raw})`,
+        params: { variant: 'browser_memory', detail: raw },
+      } satisfies FatalError;
+    }
+    throw { code: 'ZipUnreadable', message: raw } satisfies FatalError;
   }
 }
 

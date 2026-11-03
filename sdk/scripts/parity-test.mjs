@@ -1,13 +1,13 @@
-// Native <-> WASM parite kapisi (SDK tarafi).
+// Native <-> WASM parity gate (SDK side).
 //
-// tests/fixtures/wasm-parity/cases.json vakalarini WASM'da (validateGtfs, oturum validate
-// ve rerun) kosar ve expected.json ile kiyaslar. expected.json'i native CLI uretir ve
-// crates/cli/tests/wasm_parity.rs ayni dosyaya karsi dogrular; ikisi de eslesirse native
-// ve WASM birbirine esittir. 2026-09-30'da 22 feed-level toplulama yalniz native'de
-// calisiyordu ve native kosan korpus denetimi bunu goremedi; bu kapi onu yakalar.
+// Runs the tests/fixtures/wasm-parity/cases.json cases in WASM (validateGtfs, session validate,
+// and rerun) and compares them with expected.json. The native CLI produces expected.json and
+// crates/cli/tests/wasm_parity.rs checks against the same file; if both match, native and WASM
+// agree. On 2026-09-30, 22 feed-level aggregations worked only natively and the native corpus
+// audit missed it; this gate catches that.
 //
-// Karsilastirma anahtar sirasindan bagimsizdir (kanonik JSON, coklukume): Rust ile JS
-// nesne anahtarlarini farkli siralar, ayni icerik ayni sayilmalidir.
+// Comparison is independent of key order (canonical JSON, multiset semantics): Rust and JS
+// may order object keys differently, but identical content must compare equal.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -18,14 +18,14 @@ const fixtureDir = new URL('../../tests/fixtures/wasm-parity/', import.meta.url)
 const cases = JSON.parse(readFileSync(new URL('cases.json', fixtureDir), 'utf8'));
 const expected = JSON.parse(readFileSync(new URL('expected.json', fixtureDir), 'utf8'));
 
-// crates/cli/tests/wasm_parity.rs FIELDS ile ayni liste.
+// The same list as FIELDS in crates/cli/tests/wasm_parity.rs.
 const FIELDS = [
   'rule_id', 'severity', 'rule_class', 'entity_type', 'entity_id', 'scope_key', 'file',
   'line', 'field', 'observed_value', 'expected_value', 'details', 'service_id', 'title',
   'message', 'remediation',
 ];
 
-// ── Minimal STORED zip yazici (bagimlilik eklememek icin) ──────────────────────
+// ── Minimal STORED zip writer (to avoid adding a dependency) ──────────────────
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
   for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -77,7 +77,7 @@ function makeZip(files) {
   return new Uint8Array(Buffer.concat([...locals, ...centrals, end]));
 }
 
-// ── Kanonik karsilastirma ─────────────────────────────────────────────────────
+// ── Canonical comparison ─────────────────────────────────────────────────────
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -120,11 +120,11 @@ function assertSameDiff(actual, want, label) {
   assert.equal(actual.score, want.score, `${label}: score`);
   assert.equal(canonical(actual.agency_breakdown), canonical(want.agency_breakdown), `${label}: agency_breakdown`);
   assert.equal(canonical(actual.feed_summary), canonical(want.feed_summary), `${label}: feed_summary`);
-  assert.deepEqual(multiset(actual.added), multiset(want.added), `${label}: eklenen notice'lar`);
-  assert.deepEqual(actual.removed.sort(), multiset(want.removed), `${label}: kaybolan notice'lar`);
+  assert.deepEqual(multiset(actual.added), multiset(want.added), `${label}: added notices`);
+  assert.deepEqual(actual.removed.sort(), multiset(want.removed), `${label}: removed notices`);
 }
 
-// Uc SDK yolu: tam dogrulama, oturum (onbellekli) dogrulama, onbellekten rerun.
+// Three SDK paths: full validation, session (cached) validation, and rerun from the cache.
 async function runAllPaths(bytes) {
   const today = cases.today;
   const session = await createValidatorSession({ today });
@@ -145,13 +145,13 @@ for (const [path, base] of Object.entries(baseRuns)) {
   assert.equal(base.score, expected.base.score, `base/${path}: score`);
   assert.equal(canonical(base.agency_breakdown), canonical(expected.base.agency_breakdown), `base/${path}: agency_breakdown`);
   assert.equal(canonical(base.feed_summary), canonical(expected.base.feed_summary), `base/${path}: feed_summary`);
-  assert.deepEqual(multiset(base.notices), multiset(expected.base.notices), `base/${path}: notice'lar`);
+  assert.deepEqual(multiset(base.notices), multiset(expected.base.notices), `base/${path}: notices`);
 }
 
 for (const testCase of cases.cases) {
   const runs = await runAllPaths(makeZip({ ...cases.base, ...testCase.files }));
   const want = expected.cases[testCase.name];
-  assert.ok(want, `${testCase.name}: expected.json'da yok`);
+  assert.ok(want, `${testCase.name}: missing from expected.json`);
   for (const [path, projected] of Object.entries(runs)) {
     assertSameDiff(diff(projected, baseRuns[path]), want, `${testCase.name}/${path}`);
   }

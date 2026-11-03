@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 
-// Motor sürümünün tek kaynağı kök Cargo.toml `[workspace.package] version`.
-// Elle tutulan kopyalar (iç pinler, SDK ENGINE_VERSION, ui/package.json) burada ona
-// karşı denetlenir; hepsini `node scripts/bump-version.mjs X.Y.Z` yazar.
-// SDK_VERSION / sdk/package.json SDK'nın KENDİ sürümüdür, motorla eşit olmak zorunda değil.
+// The root Cargo.toml `[workspace.package] version` is the single source for the engine version.
+// Manually maintained copies (internal pins, SDK ENGINE_VERSION, ui/package.json) are checked
+// against it here; `node scripts/bump-version.mjs X.Y.Z` writes all of them.
+// SDK_VERSION / sdk/package.json is the SDK's OWN version and need not equal the engine version.
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 
 const packageJson = JSON.parse(await read('sdk/package.json'));
@@ -18,39 +18,39 @@ const engineVersion = indexSource.match(/const ENGINE_VERSION = '([^']+)'/)?.[1]
 const workspaceVersion = rootCargo.match(/^\[workspace\.package\][^[]*?^version\s*=\s*"([^"]+)"/ms)?.[1];
 
 if (!sdkVersion || !engineVersion || !workspaceVersion) {
-  throw new Error('SDK, engine veya workspace sürümü kaynaklardan okunamadı.');
+  throw new Error('Could not read the SDK, engine, or workspace version from the sources.');
 }
 
 const errors = [];
 if (packageJson.version !== sdkVersion) {
-  errors.push(`SDK package sürümü ${packageJson.version}, getVersion SDK sürümü ${sdkVersion}.`);
+  errors.push(`SDK package version ${packageJson.version}, getVersion SDK version ${sdkVersion}.`);
 }
 if (engineVersion !== workspaceVersion) {
-  errors.push(`getVersion engine sürümü ${engineVersion}, Cargo workspace sürümü ${workspaceVersion}.`);
+  errors.push(`getVersion engine version ${engineVersion}, Cargo workspace version ${workspaceVersion}.`);
 }
 
-// Her crate sürümü workspace'ten almalı; biri kendi sürümünü yazarsa tek kaynak bozulur.
+// Every crate must take its version from the workspace; a local version would break the single source.
 for (const crate of ['core', 'config', 'rules', 'pipeline', 'cli', 'wasm', 'python']) {
   const manifest = await read(`crates/${crate}/Cargo.toml`);
   if (!/^version\.workspace\s*=\s*true\s*$/m.test(manifest)) {
-    errors.push(`crates/${crate}/Cargo.toml sürümü workspace'ten almıyor (version.workspace = true bekleniyor).`);
+    errors.push(`crates/${crate}/Cargo.toml does not use the workspace version (version.workspace = true expected).`);
   }
 }
 
-// crates.io'da yayında path yerine bu pin kullanılır; workspace sürümünden ayrışırsa
-// yayınlanan crate eski iç crate'e bağlanır.
+// crates.io uses this pin instead of the path; if it diverges from the workspace version,
+// the published crate links to an older internal crate.
 const pins = [...rootCargo.matchAll(/^(gtfs-[a-z]+)\s*=\s*\{\s*version\s*=\s*"([^"]+)"/gm)];
 if (pins.length !== 4) {
-  errors.push(`Kök Cargo.toml'da 4 iç crate pini bekleniyordu, ${pins.length} bulundu.`);
+  errors.push(`Root Cargo.toml expected 4 internal crate pins, found ${pins.length}.`);
 }
 for (const [, name, version] of pins) {
   if (version !== workspaceVersion) {
-    errors.push(`İç pin ${name} = ${version}, workspace sürümü ${workspaceVersion}.`);
+    errors.push(`Internal pin ${name} = ${version}, workspace version ${workspaceVersion}.`);
   }
 }
 
 if (!/^dynamic\s*=\s*\[\s*"version"\s*\]/m.test(pyproject) || /^version\s*=/m.test(pyproject)) {
-  errors.push('pyproject.toml sürümü Cargo\'dan almalı (dynamic = ["version"], sabit version yok).');
+  errors.push('pyproject.toml must get its version from Cargo (dynamic = ["version"], no fixed version).');
 }
 
 for (const [label, version] of [
@@ -59,12 +59,12 @@ for (const [label, version] of [
   ['ui/package-lock.json packages[""]', uiLock.packages?.['']?.version],
 ]) {
   if (version !== workspaceVersion) {
-    errors.push(`${label} sürümü ${version}, Cargo workspace sürümü ${workspaceVersion}.`);
+    errors.push(`${label} version ${version}, Cargo workspace version ${workspaceVersion}.`);
   }
 }
 
 if (errors.length) {
-  throw new Error(`Sürüm uyuşmazlığı (düzeltmek için: node scripts/bump-version.mjs ${workspaceVersion}):\n- ${errors.join('\n- ')}`);
+  throw new Error(`Version mismatch (to fix: node scripts/bump-version.mjs ${workspaceVersion}):\n- ${errors.join('\n- ')}`);
 }
 
 console.log(`version check ok: gtfs-sdk ${sdkVersion}, engine ${engineVersion}`);
